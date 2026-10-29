@@ -1,6 +1,6 @@
-# SAP Labs Food Court – 3D Layout
+# SAP Labs BLR-11 Food Court – 3D Layout
 
-Interactive 3D layout of the SAP Labs (Whitefield) food court for Diwali event planning.
+Interactive 3D layout of the SAP Labs BLR-11 (Whitefield) food court for Diwali event planning.
 
 Open `index.html` (or the GitHub Pages site) in a browser:
 - Drag to rotate, scroll to zoom, right-drag to pan
