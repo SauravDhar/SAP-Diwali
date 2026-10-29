@@ -121,7 +121,7 @@ body.placing #stage canvas{cursor:crosshair}
     <div class="plan-head"><h2 id="planTitle">Event plan</h2><button id="addPin" class="btn-primary" aria-pressed="false">+ Add pin</button></div>
     <div class="row"><button id="tPins" aria-pressed="true">Show pins</button><span class="save-note" id="saveNote">Loading saved pins…</span></div>
     <div class="row" id="keyRow" hidden><input id="editKey" type="password" placeholder="Edit code" aria-label="Edit code" autocomplete="off"><button id="unlock">Unlock editing</button></div>
-    <div class="row"><button id="copyPins">Copy pins</button><button id="pastePins">Paste pins</button></div>
+    <div class="row"><button id="copyPins">Copy pins</button><button id="pastePins">Paste pins</button><button id="clearPins" class="btn-danger">Clear all pins</button></div>
     <div id="xfer" hidden class="xfer">
       <label for="xferText" id="xferLabel">Pin code</label>
       <textarea id="xferText" spellcheck="false"></textarea>
@@ -484,6 +484,7 @@ const pinGroup=new THREE.Group();scene.add(pinGroup);
 const pinLayer=document.createElement('div');document.body.appendChild(pinLayer);
 let pins=[],pinObjs=new Map(),store=null,showPins=true,placing=false,editing=null,draftPos=null;
 const LS='sapfc-pins-v1';
+if(new URLSearchParams(location.search).has('clear')){try{localStorage.removeItem(LS);history.replaceState(null,'',location.pathname);}catch(e){}}
 // Google Sheets plan (used on the GitHub site): paste the Apps Script web-app URL here.
 const SHEET_URL='';
 // Published plan: pins built into this page so every visitor sees them (filled in from the shared plan).
@@ -587,6 +588,13 @@ pins=presets().concat(lsLoad());renderPins();note.textContent=PRESET_PINS.length
   document.getElementById('pastePins').addEventListener('click',()=>{box.hidden=false;imp.hidden=false;ta.readOnly=false;ta.value='';
     document.getElementById('xferLabel').textContent='Paste a pin code';xn.textContent='';ta.focus();});
   document.getElementById('xferClose').addEventListener('click',()=>{box.hidden=true;});
+  const clr=document.getElementById('clearPins');
+  if(clr){clr.addEventListener('click',()=>{
+    if(clr.dataset.confirm!=='1'){clr.dataset.confirm='1';clr.textContent='Tap again to confirm';setTimeout(()=>{clr.dataset.confirm='';clr.textContent='Clear all pins';},3000);return;}
+    clr.dataset.confirm='';clr.textContent='Clear all pins';
+    try{localStorage.removeItem(LS);}catch(e){}
+    pins=presets();renderPins();
+  });}
   imp.addEventListener('click',async()=>{let arr;try{arr=JSON.parse(ta.value.trim().replace(/^SAPFC-PINS\s*/,''));if(!Array.isArray(arr))throw 0;}catch(e){xn.textContent='That code is not a pin code. Copy it again with Copy pins.';return;}
     const have=new Set(pins.map(p=>p.title+'|'+p.x+'|'+p.z));let n=0;imp.disabled=true;
     try{for(const raw of arr){const p=clean(raw);if(have.has(p.title+'|'+p.x+'|'+p.z))continue;
