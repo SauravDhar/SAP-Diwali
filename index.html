@@ -83,6 +83,9 @@ body.placing #stage canvas{cursor:crosshair}
 .keys{font-size:11.5px;color:var(--muted);line-height:1.5}
 .keys kbd{font:600 10.5px var(--body);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;background:var(--chip)}
 @media (max-width:520px){.pad{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px);transform:scale(.85);transform-origin:top right}}
+.xfer{display:flex;flex-direction:column;gap:6px}
+.xfer label{font-size:12px;font-weight:600;color:var(--muted)}
+.xfer textarea{font:12px ui-monospace,Consolas,monospace;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;min-height:90px;resize:vertical}
 </style>
 
 <div id="stage"><div id="loading">Building the food court…</div></div>
@@ -116,6 +119,12 @@ body.placing #stage canvas{cursor:crosshair}
   <section class="plan" aria-labelledby="planTitle">
     <div class="plan-head"><h2 id="planTitle">Event plan</h2><button id="addPin" class="btn-primary" aria-pressed="false">+ Add pin</button></div>
     <div class="row"><button id="tPins" aria-pressed="true">Show pins</button><span class="save-note" id="saveNote">Loading saved pins…</span></div>
+    <div class="row"><button id="copyPins">Copy pins</button><button id="pastePins">Paste pins</button></div>
+    <div id="xfer" hidden class="xfer">
+      <label for="xferText" id="xferLabel">Pin code</label>
+      <textarea id="xferText" spellcheck="false"></textarea>
+      <div class="row"><span class="save-note" id="xferNote"></span><button id="xferClose">Close</button><button id="xferImport" class="btn-primary" hidden>Add these pins</button></div>
+    </div>
     <ul id="pinList"></ul>
     <p class="empty" id="pinEmpty">No pins yet. Click <b>+ Add pin</b>, then click a spot on the floor to mark a live counter, decoration, standee or anything else.</p>
   </section>
@@ -474,7 +483,7 @@ const pinLayer=document.createElement('div');document.body.appendChild(pinLayer)
 let pins=[],pinObjs=new Map(),store=null,showPins=true,placing=false,editing=null,draftPos=null;
 const LS='sapfc-pins-v1';
 // Published plan: pins built into this page so every visitor sees them (filled in from the shared plan).
-const PRESET_PINS=[{"title": "Welcome rangoli & diyas", "type": "deco", "notes": "Suggested · Large rangoli with brass diyas in front of the entry gates — first thing guests see.", "x": -6, "z": 0.8, "created": 1793272000000}, {"title": "Live Jalebi & Rabri", "type": "live", "notes": "Suggested · Hot jalebis fried live in a brass kadai, served with rabri. Needs 1 power point and a fire-safe zone.", "x": 7, "z": 3, "created": 1793272000001}, {"title": "Live Chaat counter", "type": "live", "notes": "Suggested · Pani puri, papdi chaat and aloo tikki made to order, next to the orange seating.", "x": 20, "z": 3.5, "created": 1793272000002}, {"title": "Mithai & Diwali gifting", "type": "food", "notes": "Suggested · Display of sweets and gift boxes beside the Belaku totem.", "x": -2, "z": 5.5, "created": 1793272000003}, {"title": "Festive mocktail station", "type": "bev", "notes": "Suggested · Flavour Station cart dressed as a mocktail bar: thandai, kesar badam, nimbu soda.", "x": 6, "z": 11.2, "created": 1793272000004}, {"title": "Diwali photo booth", "type": "booth", "notes": "Suggested · Marigold backdrop with brass ring frame by the garden exit doors.", "x": -9, "z": 13.2, "created": 1793272000005}, {"title": "Lantern & marigold canopy", "type": "deco", "notes": "Suggested · Hanging lanterns and marigold strings over the main corridor.", "x": 12, "z": 2, "created": 1793272000006}, {"title": "Event schedule standee", "type": "sign", "notes": "Suggested · Counter list and timings next to the helpdesk.", "x": -17, "z": 3.6, "created": 1793272000007}, {"title": "Power check for live counters", "type": "power", "notes": "Suggested · Confirm sockets and load near Desi Detour before setup.", "x": 4.5, "z": -5.5, "created": 1793272000008}];
+const PRESET_PINS=[];
 const presets=()=>PRESET_PINS.map((p,i)=>Object.assign({id:'preset'+i,fixed:true},p));
 function lsLoad(){try{return JSON.parse(localStorage.getItem(LS)||'[]');}catch(e){return [];}}
 function lsSave(){try{localStorage.setItem(LS,JSON.stringify(pins.filter(p=>!p.fixed)));}catch(e){}}
@@ -546,6 +555,23 @@ pins=presets().concat(lsLoad());renderPins();note.textContent=PRESET_PINS.length
   if(!db)return;store=db.collection('pins');note.textContent='Shared plan · syncing…';
   store.orderBy('created').onSnapshot(s=>{pins=s.docs.map(d=>Object.assign({id:d.id},d.data()));renderPins();note.textContent='Shared plan · everyone with access sees these pins';},
     ()=>{store=null;note.textContent='Could not load the shared plan; pins are saved in this browser only';pins=presets().concat(lsLoad());renderPins();});})();
+
+/* copy / paste pins between browsers */
+(function(){const box=document.getElementById('xfer'),ta=document.getElementById('xferText'),xn=document.getElementById('xferNote'),imp=document.getElementById('xferImport');
+  const clean=p=>({title:String(p.title||'Untitled').slice(0,60),type:PIN_TYPES[p.type]?p.type:'note',notes:String(p.notes||'').slice(0,500),x:+(+p.x).toFixed(2),z:+(+p.z).toFixed(2),created:+p.created||Date.now()});
+  document.getElementById('copyPins').addEventListener('click',async()=>{const mine=pins.filter(p=>!p.fixed).map(clean);
+    const code='SAPFC-PINS '+JSON.stringify(mine);box.hidden=false;imp.hidden=true;document.getElementById('xferLabel').textContent='Your pins ('+mine.length+')';ta.value=code;ta.readOnly=true;
+    try{await navigator.clipboard.writeText(code);xn.textContent='Copied. Paste it in your chat with Claude, or into Paste pins on another device.';}
+    catch(e){ta.focus();ta.select();xn.textContent='Press Ctrl + C to copy the selected code.';}});
+  document.getElementById('pastePins').addEventListener('click',()=>{box.hidden=false;imp.hidden=false;ta.readOnly=false;ta.value='';
+    document.getElementById('xferLabel').textContent='Paste a pin code';xn.textContent='';ta.focus();});
+  document.getElementById('xferClose').addEventListener('click',()=>{box.hidden=true;});
+  imp.addEventListener('click',async()=>{let arr;try{arr=JSON.parse(ta.value.trim().replace(/^SAPFC-PINS\s*/,''));if(!Array.isArray(arr))throw 0;}catch(e){xn.textContent='That code is not a pin code. Copy it again with Copy pins.';return;}
+    const have=new Set(pins.map(p=>p.title+'|'+p.x+'|'+p.z));let n=0;imp.disabled=true;
+    try{for(const raw of arr){const p=clean(raw);if(have.has(p.title+'|'+p.x+'|'+p.z))continue;
+        if(store)await store.add(p);else pins.push(Object.assign({id:'p'+Date.now()+'_'+n},p));n++;}
+      if(!store){lsSave();renderPins();}xn.textContent=n?('Added '+n+' pin'+(n>1?'s':'')+'.'):'Those pins are already here.';}
+    catch(e){xn.textContent='Could not add all pins. Check your connection and try again.';}finally{imp.disabled=false;}});})();
 
 /* ---------- free navigation: keys, on-screen pad, double-click jump, walk mode ---------- */
 const held=new Set();let walk=false;
