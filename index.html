@@ -86,6 +86,7 @@ body.placing #stage canvas{cursor:crosshair}
 .xfer{display:flex;flex-direction:column;gap:6px}
 .xfer label{font-size:12px;font-weight:600;color:var(--muted)}
 .xfer textarea{font:12px ui-monospace,Consolas,monospace;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;min-height:90px;resize:vertical}
+#keyRow input{flex:1;min-width:0;font:13px var(--body);color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:6px 12px}
 </style>
 
 <div id="stage"><div id="loading">Building the food court…</div></div>
@@ -119,6 +120,7 @@ body.placing #stage canvas{cursor:crosshair}
   <section class="plan" aria-labelledby="planTitle">
     <div class="plan-head"><h2 id="planTitle">Event plan</h2><button id="addPin" class="btn-primary" aria-pressed="false">+ Add pin</button></div>
     <div class="row"><button id="tPins" aria-pressed="true">Show pins</button><span class="save-note" id="saveNote">Loading saved pins…</span></div>
+    <div class="row" id="keyRow" hidden><input id="editKey" type="password" placeholder="Edit code" aria-label="Edit code" autocomplete="off"><button id="unlock">Unlock editing</button></div>
     <div class="row"><button id="copyPins">Copy pins</button><button id="pastePins">Paste pins</button></div>
     <div id="xfer" hidden class="xfer">
       <label for="xferText" id="xferLabel">Pin code</label>
@@ -482,6 +484,8 @@ const pinGroup=new THREE.Group();scene.add(pinGroup);
 const pinLayer=document.createElement('div');document.body.appendChild(pinLayer);
 let pins=[],pinObjs=new Map(),store=null,showPins=true,placing=false,editing=null,draftPos=null;
 const LS='sapfc-pins-v1';
+// Google Sheets plan (used on the GitHub site): paste the Apps Script web-app URL here.
+const SHEET_URL='';
 // Published plan: pins built into this page so every visitor sees them (filled in from the shared plan).
 const PRESET_PINS=[];
 const presets=()=>PRESET_PINS.map((p,i)=>Object.assign({id:'preset'+i,fixed:true},p));
@@ -530,7 +534,7 @@ form.addEventListener('submit',async e=>{e.preventDefault();
     else{Object.assign(body,{x:+draftPos.x.toFixed(2),z:+draftPos.z.toFixed(2),created:Date.now()});
       if(store)await store.add(body);else{pins.push(Object.assign({id:'p'+Date.now()},body));lsSave();renderPins();}}
     closeForm();
-  }catch(ex){err.textContent=ex&&ex.code==='quota_exceeded'?'The plan is full. Delete some pins, then try again.':'Could not save the pin. Check your connection and try again.';err.hidden=false;}
+  }catch(ex){err.textContent=ex&&ex.code==='quota_exceeded'?'The plan is full. Delete some pins, then try again.':ex&&ex.code==='bad_key'?'The edit code is missing or wrong. Unlock editing in the panel first.':'Could not save the pin. Check your connection and try again.';err.hidden=false;}
   finally{save.disabled=false;}});
 document.getElementById('pinDelete').addEventListener('click',async()=>{if(!editing)return;const b=document.getElementById('pinDelete');
   if(b.dataset.confirm!=='1'){b.dataset.confirm='1';b.textContent='Tap again to delete';setTimeout(()=>{b.dataset.confirm='';b.textContent='Delete';},3000);return;}
@@ -549,10 +553,27 @@ renderer.domElement.addEventListener('pointerup',e=>{if(!down||Math.hypot(e.clie
   if(!placing&&showPins){const h=ray.intersectObjects(pinGroup.children,true)[0];if(h){const p=pins.find(q=>q.id===h.object.userData.pinId);if(p)openForm(p);}return;}
   if(!placing)return;const h=ray.intersectObject(floor)[0];if(!h)return;setPlacing(false);openForm(null,h.point);});
 // storage: shared plan when the page runs on claude.ai, this browser otherwise
+/* Google Sheets shared plan (GitHub site) */
+const KEYLS='sapfc-editkey';let editKey='';try{editKey=localStorage.getItem(KEYLS)||'';}catch(e){}
+function sheetCall(body){return fetch(SHEET_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({key:editKey},body))})
+  .then(r=>r.json()).then(j=>{if(!j.ok){const e=new Error(j.error||'failed');e.code=j.error;throw e;}if(j.pins)applySheet(j.pins,true);return j;});}
+function applySheet(list,force){if(!force&&!form.hidden&&editing)return;pins=list.slice().sort((a,b)=>a.created-b.created);renderPins();}
+function sheetLoad(){return fetch(SHEET_URL+(SHEET_URL.includes('?')?'&':'?')+'t='+Date.now()).then(r=>r.json()).then(j=>{if(j.ok)applySheet(j.pins||[]);});}
+function setEditable(on){addBtn.disabled=!on;document.getElementById('keyRow').hidden=on;
+  note.textContent=on?'Shared plan (Google Sheet) · everyone with the link sees these pins':'Shared plan (Google Sheet) · enter the edit code to add or change pins';}
+function startSheet(){
+  store={add:p=>sheetCall({action:'add',pin:p}),doc:id=>({set:p=>sheetCall({action:'update',id,pin:p}),delete:()=>sheetCall({action:'delete',id})})};
+  note.textContent='Shared plan (Google Sheet) · loading…';pins=[];renderPins();
+  sheetLoad().then(()=>{if(editKey)sheetCall({action:'check'}).then(()=>setEditable(true),()=>{editKey='';setEditable(false);});else setEditable(false);})
+    .catch(()=>{note.textContent='Could not reach the shared plan. Check your connection and reload.';});
+  setInterval(()=>{if(!document.hidden)sheetLoad().catch(()=>{});},15000);
+  document.getElementById('unlock').addEventListener('click',()=>{const k=document.getElementById('editKey').value.trim();if(!k)return;editKey=k;
+    sheetCall({action:'check'}).then(()=>{try{localStorage.setItem(KEYLS,k);}catch(e){}document.getElementById('editKey').value='';setEditable(true);},
+      ()=>{editKey='';note.textContent='That edit code is not right. Ask the organiser for it.';});});}
 const note=document.getElementById('saveNote');
 pins=presets().concat(lsLoad());renderPins();note.textContent=PRESET_PINS.length?'Published plan · pins you add save in this browser only':'Saved in this browser only';
 (async()=>{let db=null;try{db=window.claude&&window.claude.use?await window.claude.use('db'):null;}catch(e){db=null;}
-  if(!db)return;store=db.collection('pins');note.textContent='Shared plan · syncing…';
+  if(!db){if(SHEET_URL)startSheet();return;}store=db.collection('pins');note.textContent='Shared plan · syncing…';
   store.orderBy('created').onSnapshot(s=>{pins=s.docs.map(d=>Object.assign({id:d.id},d.data()));renderPins();note.textContent='Shared plan · everyone with access sees these pins';},
     ()=>{store=null;note.textContent='Could not load the shared plan; pins are saved in this browser only';pins=presets().concat(lsLoad());renderPins();});})();
 
