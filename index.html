@@ -488,7 +488,112 @@ if(new URLSearchParams(location.search).has('clear')){try{localStorage.removeIte
 // Google Sheets plan (used on the GitHub site): paste the Apps Script web-app URL here.
 const SHEET_URL='';
 // Published plan: pins built into this page so every visitor sees them (filled in from the shared plan).
-const PRESET_PINS=[];
+const PRESET_PINS = [
+  {
+    "title": "Asian Non-Veg",
+    "type": "food",
+    "notes": "Non-Veg Counter for Asian Menu.",
+    "x": 27.2,
+    "z": -0.03,
+    "created": 1793271683949
+  },
+  {
+    "title": "Asian Veg",
+    "type": "food",
+    "notes": "Vegetarian Asian Menu",
+    "x": 21.59,
+    "z": 0.15,
+    "created": 1793271769731
+  },
+  {
+    "title": "Chole Bhatore",
+    "type": "food",
+    "notes": "",
+    "x": 6.71,
+    "z": -4.85,
+    "created": 1793271857024
+  },
+  {
+    "title": "Veg & Non-Veg Biriyani",
+    "type": "food",
+    "notes": "",
+    "x": 6.24,
+    "z": -9.67,
+    "created": 1793271935337
+  },
+  {
+    "title": "Kids Junction",
+    "type": "food",
+    "notes": "",
+    "x": 6.22,
+    "z": -15.05,
+    "created": 1793271962122
+  },
+  {
+    "title": "Krispy Kreeme",
+    "type": "live",
+    "notes": "",
+    "x": -2.2,
+    "z": -3.38,
+    "created": 1793272073277
+  },
+  {
+    "title": "In-House Dessert",
+    "type": "live",
+    "notes": "",
+    "x": -5.28,
+    "z": -2.36,
+    "created": 1793272116814
+  },
+  {
+    "title": "Turkish Ice-Cream",
+    "type": "live",
+    "notes": "",
+    "x": -8.71,
+    "z": -3.99,
+    "created": 1793272140589
+  },
+  {
+    "title": "Pav Bhaji",
+    "type": "food",
+    "notes": "",
+    "x": -18.47,
+    "z": 0.09,
+    "created": 1793272168570
+  },
+  {
+    "title": "Dosa & South Indian Food",
+    "type": "live",
+    "notes": "",
+    "x": -30.06,
+    "z": -0.03,
+    "created": 1793272202734
+  },
+  {
+    "title": "Beverage Counter",
+    "type": "bev",
+    "notes": "",
+    "x": 3.76,
+    "z": 7.32,
+    "created": 1793272231607
+  },
+  {
+    "title": "Waffle Counter",
+    "type": "live",
+    "notes": "",
+    "x": 3.85,
+    "z": 9.71,
+    "created": 1793272254011
+  },
+  {
+    "title": "Paan Counter",
+    "type": "live",
+    "notes": "",
+    "x": -7.03,
+    "z": 9.07,
+    "created": 1793272284268
+  }
+];
 const presets=()=>PRESET_PINS.map((p,i)=>Object.assign({id:'preset'+i,fixed:true},p));
 function lsLoad(){try{return JSON.parse(localStorage.getItem(LS)||'[]');}catch(e){return [];}}
 function lsSave(){try{localStorage.setItem(LS,JSON.stringify(pins.filter(p=>!p.fixed)));}catch(e){}}
@@ -581,7 +686,7 @@ pins=presets().concat(lsLoad());renderPins();note.textContent=PRESET_PINS.length
 /* copy / paste pins between browsers */
 (function(){const box=document.getElementById('xfer'),ta=document.getElementById('xferText'),xn=document.getElementById('xferNote'),imp=document.getElementById('xferImport');
   const clean=p=>({title:String(p.title||'Untitled').slice(0,60),type:PIN_TYPES[p.type]?p.type:'note',notes:String(p.notes||'').slice(0,500),x:+(+p.x).toFixed(2),z:+(+p.z).toFixed(2),created:+p.created||Date.now()});
-  document.getElementById('copyPins').addEventListener('click',async()=>{const mine=pins.filter(p=>!p.fixed).map(clean);
+  document.getElementById('copyPins').addEventListener('click',async()=>{const mine=(pins.some(p=>!p.fixed)?pins.filter(p=>!p.fixed):pins).map(clean);
     const code='SAPFC-PINS '+JSON.stringify(mine);box.hidden=false;imp.hidden=true;document.getElementById('xferLabel').textContent='Your pins ('+mine.length+')';ta.value=code;ta.readOnly=true;
     try{await navigator.clipboard.writeText(code);xn.textContent='Copied. Paste it in your chat with Claude, or into Paste pins on another device.';}
     catch(e){ta.focus();ta.select();xn.textContent='Press Ctrl + C to copy the selected code.';}});
