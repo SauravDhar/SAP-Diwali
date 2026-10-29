@@ -457,8 +457,11 @@ const pinGroup=new THREE.Group();scene.add(pinGroup);
 const pinLayer=document.createElement('div');document.body.appendChild(pinLayer);
 let pins=[],pinObjs=new Map(),store=null,showPins=true,placing=false,editing=null,draftPos=null;
 const LS='sapfc-pins-v1';
+// Published plan: pins built into this page so every visitor sees them (filled in from the shared plan).
+const PRESET_PINS=[];
+const presets=()=>PRESET_PINS.map((p,i)=>Object.assign({id:'preset'+i,fixed:true},p));
 function lsLoad(){try{return JSON.parse(localStorage.getItem(LS)||'[]');}catch(e){return [];}}
-function lsSave(){try{localStorage.setItem(LS,JSON.stringify(pins));}catch(e){}}
+function lsSave(){try{localStorage.setItem(LS,JSON.stringify(pins.filter(p=>!p.fixed)));}catch(e){}}
 function color(t){return (PIN_TYPES[t]||PIN_TYPES.note)[1];}
 function renderPins(){
   pinObjs.forEach(o=>{pinGroup.remove(o.mesh);o.el.remove();});pinObjs.clear();
@@ -487,7 +490,10 @@ const form=document.getElementById('pinForm'),err=document.getElementById('pinEr
 function openForm(p,pos){editing=p||null;draftPos=pos||null;err.hidden=true;
   document.getElementById('pinFormTitle').textContent=p?'Edit pin':'New pin';
   document.getElementById('pinTitle').value=p?p.title:'';typeSel.value=p?p.type:'live';document.getElementById('pinNotes').value=p?(p.notes||''):'';
-  document.getElementById('pinDelete').hidden=!p;form.hidden=false;document.getElementById('pinTitle').focus();}
+  const ro=!!(p&&p.fixed);['pinTitle','pinType','pinNotes'].forEach(id=>{document.getElementById(id).disabled=ro;});
+  document.getElementById('pinSave').hidden=ro;document.getElementById('pinDelete').hidden=!p||ro;
+  if(ro)document.getElementById('pinFormTitle').textContent='Published pin';
+  document.getElementById('pinCancel').textContent=ro?'Close':'Cancel';form.hidden=false;if(!ro)document.getElementById('pinTitle').focus();}
 function closeForm(){form.hidden=true;editing=null;draftPos=null;}
 document.getElementById('pinCancel').addEventListener('click',closeForm);
 form.addEventListener('submit',async e=>{e.preventDefault();
@@ -519,11 +525,11 @@ renderer.domElement.addEventListener('pointerup',e=>{if(!down||Math.hypot(e.clie
   if(!placing)return;const h=ray.intersectObject(floor)[0];if(!h)return;setPlacing(false);openForm(null,h.point);});
 // storage: shared plan when the page runs on claude.ai, this browser otherwise
 const note=document.getElementById('saveNote');
-pins=lsLoad();renderPins();note.textContent='Saved in this browser only';
+pins=presets().concat(lsLoad());renderPins();note.textContent=PRESET_PINS.length?'Published plan · pins you add save in this browser only':'Saved in this browser only';
 (async()=>{let db=null;try{db=window.claude&&window.claude.use?await window.claude.use('db'):null;}catch(e){db=null;}
   if(!db)return;store=db.collection('pins');note.textContent='Shared plan · syncing…';
   store.orderBy('created').onSnapshot(s=>{pins=s.docs.map(d=>Object.assign({id:d.id},d.data()));renderPins();note.textContent='Shared plan · everyone with access sees these pins';},
-    ()=>{store=null;note.textContent='Could not load the shared plan; pins are saved in this browser only';pins=lsLoad();renderPins();});})();
+    ()=>{store=null;note.textContent='Could not load the shared plan; pins are saved in this browser only';pins=presets().concat(lsLoad());renderPins();});})();
 
 /* ---------- loop ---------- */
 function resize(){const w=stage.clientWidth,h=stage.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
