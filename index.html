@@ -66,7 +66,7 @@ body.placing #stage canvas{cursor:crosshair}
 .pinlbl{position:fixed;left:0;top:0;z-index:4;display:flex;align-items:center;gap:6px;padding:3px 9px 3px 3px;border-radius:999px;background:var(--card);color:var(--fg);
   border:1px solid var(--line);font:600 12px var(--body);white-space:nowrap;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.15);max-width:220px}
 .pinlbl span:last-child{overflow:hidden;text-overflow:ellipsis}
-.sheet{position:fixed;z-index:8;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 16px);width:min(340px,calc(100% - 32px));
+.sheet{position:fixed;z-index:8;right:max(16px,env(safe-area-inset-right,0px));top:calc(env(safe-area-inset-top,0px) + 16px);width:min(340px,calc(100% - 32px));
   background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px;box-shadow:0 12px 40px rgba(0,0,0,.22)}
 .sheet h3{margin:0;font-family:var(--display);font-size:16px}
 .sheet label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--muted)}
@@ -76,6 +76,13 @@ body.placing #stage canvas{cursor:crosshair}
 .btn-primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
 .btn-danger{color:#b42318;margin-right:auto}
 .err{font-size:12px;color:#b42318}
+.pad{position:fixed;z-index:5;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 16px);display:grid;
+  grid-template-columns:repeat(3,40px);grid-template-rows:repeat(2,40px);gap:4px;padding:8px;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 30px rgba(40,30,20,.12)}
+.pad button{width:40px;height:40px;padding:0;border-radius:10px;font-size:16px;line-height:1;display:grid;place-items:center;touch-action:none;user-select:none}
+.pad .zoom{position:absolute;right:calc(100% + 8px);bottom:0;display:flex;flex-direction:column;gap:4px;padding:8px;background:var(--card);border:1px solid var(--line);border-radius:14px}
+.keys{font-size:11.5px;color:var(--muted);line-height:1.5}
+.keys kbd{font:600 10.5px var(--body);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;background:var(--chip)}
+@media (max-width:520px){.pad{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px);transform:scale(.85);transform-origin:top right}}
 </style>
 
 <div id="stage"><div id="loading">Building the food court…</div></div>
@@ -84,7 +91,7 @@ body.placing #stage canvas{cursor:crosshair}
   <div>
     <h1>SAP Labs Food Court</h1>
   </div>
-  <p class="desc">3D layout drawn from the walkthrough photos. Drag to rotate, scroll or pinch to zoom, right-drag to pan. Positions and sizes are approximate.</p>
+  <p class="desc">3D layout drawn from the walkthrough photos. Drag to rotate, scroll or pinch to zoom, right-drag or two-finger drag to move. Double-click any spot to glide there. Positions and sizes are approximate.</p>
   <div class="group-label">Camera</div>
   <div class="views" id="views">
     <button data-view="overview" aria-pressed="true">Overview</button>
@@ -96,7 +103,9 @@ body.placing #stage canvas{cursor:crosshair}
     <button data-view="lobby">Gates &amp; lobby</button>
     <button data-view="lounge">Window lounge</button>
     <button data-view="passage">Garden passage</button>
+    <button id="tWalk" aria-pressed="false">Walk mode</button>
   </div>
+  <p class="keys">Move with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows, turn with <kbd>Q</kbd><kbd>E</kbd>, up/down <kbd>R</kbd><kbd>F</kbd>, hold <kbd>Shift</kbd> to go faster.</p>
   <div class="group-label">Show</div>
   <div class="row">
     <button id="tLabels" aria-pressed="true">Labels</button>
@@ -111,6 +120,11 @@ body.placing #stage canvas{cursor:crosshair}
     <p class="empty" id="pinEmpty">No pins yet. Click <b>+ Add pin</b>, then click a spot on the floor to mark a live counter, decoration, standee or anything else.</p>
   </section>
   <div class="hint">For proposal images: hide the panel, frame the view, then press Win + Shift + S.</div>
+</div>
+<div class="pad" id="pad" aria-label="Move the camera">
+  <div class="zoom"><button data-move="in" aria-label="Zoom in">+</button><button data-move="out" aria-label="Zoom out">−</button><button data-move="up" aria-label="Raise camera">▲</button><button data-move="down" aria-label="Lower camera">▼</button></div>
+  <button data-move="rotl" aria-label="Turn left">⟲</button><button data-move="fwd" aria-label="Move forward">↑</button><button data-move="rotr" aria-label="Turn right">⟳</button>
+  <button data-move="left" aria-label="Move left">←</button><button data-move="back" aria-label="Move back">↓</button><button data-move="right" aria-label="Move right">→</button>
 </div>
 <button id="show" hidden>Show panel</button>
 <div class="place-hint" id="placeHint" hidden>Click a spot on the floor to drop the pin · Esc to cancel</div>
@@ -145,7 +159,9 @@ new MutationObserver(sceneBg).observe(document.documentElement,{attributes:true,
 
 const camera=new THREE.PerspectiveCamera(45,1,0.1,400);
 const controls=new THREE.OrbitControls(camera,renderer.domElement);
-controls.enableDamping=true; controls.maxPolarAngle=Math.PI/2-0.03; controls.minDistance=2; controls.maxDistance=140;
+controls.enableDamping=true; controls.dampingFactor=0.08; controls.maxPolarAngle=Math.PI/2-0.02; controls.minDistance=0.5; controls.maxDistance=220;
+controls.rotateSpeed=0.8; controls.zoomSpeed=1.2; controls.panSpeed=1.1; controls.screenSpacePanning=false; controls.keyPanSpeed=0;
+controls.touches={ONE:THREE.TOUCH.ROTATE,TWO:THREE.TOUCH.DOLLY_PAN};
 
 scene.add(new THREE.HemisphereLight(0xfff8ee,0x8a8178,0.75));
 const sun=new THREE.DirectionalLight(0xffffff,0.75);
@@ -446,8 +462,8 @@ toggle('tLabels',on=>{showLabels=on;});
 toggle('tCeiling',on=>{ceiling.visible=on;});
 toggle('tSpin',on=>{controls.autoRotate=on;controls.autoRotateSpeed=0.6;});
 const card=document.getElementById('card'),show=document.getElementById('show');
-document.getElementById('tHide').addEventListener('click',()=>{card.hidden=true;show.hidden=false;});
-show.addEventListener('click',()=>{card.hidden=false;show.hidden=true;});
+document.getElementById('tHide').addEventListener('click',()=>{card.hidden=true;show.hidden=false;document.getElementById('pad').hidden=true;});
+show.addEventListener('click',()=>{card.hidden=false;show.hidden=true;document.getElementById('pad').hidden=false;});
 
 /* ---------- event plan pins ---------- */
 const PIN_TYPES={live:['Live counter','#d9480f'],food:['Food / buffet','#e8590c'],bev:['Beverage station','#1c7ed6'],deco:['Decoration','#c99a06'],booth:['Photo booth','#a61e4d'],sign:['Signage / standee','#2b8a3e'],power:['Power / utility','#5f3dc4'],note:['Note','#495057']};
@@ -531,13 +547,59 @@ pins=presets().concat(lsLoad());renderPins();note.textContent=PRESET_PINS.length
   store.orderBy('created').onSnapshot(s=>{pins=s.docs.map(d=>Object.assign({id:d.id},d.data()));renderPins();note.textContent='Shared plan · everyone with access sees these pins';},
     ()=>{store=null;note.textContent='Could not load the shared plan; pins are saved in this browser only';pins=presets().concat(lsLoad());renderPins();});})();
 
+/* ---------- free navigation: keys, on-screen pad, double-click jump, walk mode ---------- */
+const held=new Set();let walk=false;
+const KEYMAP={KeyW:'fwd',ArrowUp:'fwd',KeyS:'back',ArrowDown:'back',KeyA:'left',ArrowLeft:'left',KeyD:'right',ArrowRight:'right',
+  KeyQ:'rotl',KeyE:'rotr',KeyR:'up',KeyF:'down',Equal:'in',NumpadAdd:'in',Minus:'out',NumpadSubtract:'out'};
+const typing=()=>{const a=document.activeElement;return a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA'||a.tagName==='SELECT');};
+window.addEventListener('keydown',e=>{if(typing())return;const k=KEYMAP[e.code];if(k){held.add(k);tween=null;e.preventDefault();}if(e.shiftKey)held.add('fast');});
+window.addEventListener('keyup',e=>{const k=KEYMAP[e.code];if(k)held.delete(k);if(!e.shiftKey)held.delete('fast');});
+window.addEventListener('blur',()=>held.clear());
+document.querySelectorAll('[data-move]').forEach(b=>{const k=b.dataset.move;
+  const on=e=>{e.preventDefault();held.add(k);tween=null;b.setPointerCapture&&b.setPointerCapture(e.pointerId);},off=()=>held.delete(k);
+  b.addEventListener('pointerdown',on);b.addEventListener('pointerup',off);b.addEventListener('pointercancel',off);b.addEventListener('pointerleave',off);
+  b.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){held.add(k);setTimeout(()=>held.delete(k),180);}});});
+const _f=new THREE.Vector3(),_r=new THREE.Vector3(),_up=new THREE.Vector3(0,1,0);let last=performance.now();
+function clampTarget(){const t=controls.target;t.x=Math.max(X0-6,Math.min(X1+6,t.x));t.z=Math.max(Z0-8,Math.min(Z1+6,t.z));t.y=Math.max(0,Math.min(12,t.y));}
+function navStep(){const now=performance.now(),dt=Math.min(0.05,(now-last)/1000);last=now;if(!held.size)return;
+  const dist=camera.position.distanceTo(controls.target);
+  const sp=(held.has('fast')?3:1)*(walk?5:Math.max(6,dist*0.9))*dt;
+  camera.getWorldDirection(_f);_f.y=0;if(_f.lengthSq()<1e-6)_f.set(0,0,-1);_f.normalize();_r.crossVectors(_f,_up).normalize();
+  const mv=new THREE.Vector3();
+  if(held.has('fwd'))mv.add(_f);if(held.has('back'))mv.sub(_f);if(held.has('right'))mv.add(_r);if(held.has('left'))mv.sub(_r);
+  if(mv.lengthSq()){mv.normalize().multiplyScalar(sp);camera.position.add(mv);controls.target.add(mv);}
+  if(held.has('up')||held.has('down')){const dy=(held.has('up')?1:-1)*sp*0.6;if(!(walk&&dy<0&&camera.position.y<=1.2)){camera.position.y+=dy;controls.target.y+=dy;}}
+  if(held.has('rotl')||held.has('rotr')){const a=(held.has('rotl')?1:-1)*1.4*dt*(held.has('fast')?2:1);
+    const off=camera.position.clone().sub(controls.target).applyAxisAngle(_up,walk?-a:a);
+    if(walk){const look=controls.target.clone().sub(camera.position).applyAxisAngle(_up,a);controls.target.copy(camera.position).add(look);}else camera.position.copy(controls.target).add(off);}
+  if(held.has('in')||held.has('out')){const f=held.has('in')?1-1.6*dt:1+1.6*dt;const off=camera.position.clone().sub(controls.target).multiplyScalar(f);
+    if(off.length()>controls.minDistance&&off.length()<controls.maxDistance)camera.position.copy(controls.target).add(off);}
+  clampTarget();if(camera.position.y<0.4)camera.position.y=0.4;}
+// double-click a spot to glide there
+renderer.domElement.addEventListener('dblclick',e=>{const r=renderer.domElement.getBoundingClientRect();
+  const n=new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);const rc=new THREE.Raycaster();rc.setFromCamera(n,camera);
+  const h=rc.intersectObjects(scene.children,true).find(i=>i.object.visible&&!(i.object.material&&i.object.material.transparent&&i.object.material.opacity<0.5));if(!h)return;
+  const p=h.point.clone();if(walk){p.y=1.65;const off=controls.target.clone().sub(camera.position);tween={fp:camera.position.clone(),ft:controls.target.clone(),to:{p,t:p.clone().add(off)},t:0};}
+  else{const off=camera.position.clone().sub(controls.target).multiplyScalar(0.6);tween={fp:camera.position.clone(),ft:controls.target.clone(),to:{p:h.point.clone().add(off),t:h.point.clone()},t:0};}});
+// walk mode: eye-level, drag to look around
+function setWalk(on){walk=on;const b=document.getElementById('tWalk');b.setAttribute('aria-pressed',on);
+  if(on){const t=controls.target.clone();t.y=1.65;const dir=t.clone().sub(camera.position);dir.y=0;if(dir.lengthSq()<1e-4)dir.set(0,0,-1);dir.normalize();
+    controls.minDistance=0.1;controls.maxPolarAngle=Math.PI-0.15;controls.minPolarAngle=0.15;controls.enableZoom=false;controls.rotateSpeed=-0.35;
+    const eye=t.clone().sub(dir.clone().multiplyScalar(0.0));const p=new THREE.Vector3(eye.x,1.65,eye.z);
+    tween={fp:camera.position.clone(),ft:controls.target.clone(),to:{p,t:p.clone().add(dir.multiplyScalar(0.6))},t:0};}
+  else{controls.minDistance=0.5;controls.maxPolarAngle=Math.PI/2-0.02;controls.minPolarAngle=0;controls.enableZoom=true;controls.rotateSpeed=0.8;
+    const t=controls.target.clone();t.y=0;tween={fp:camera.position.clone(),ft:controls.target.clone(),to:{p:t.clone().add(new THREE.Vector3(10,14,14)),t},t:0};}}
+document.getElementById('tWalk').addEventListener('click',()=>setWalk(!walk));
+document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{if(walk){walk=false;document.getElementById('tWalk').setAttribute('aria-pressed',false);
+  controls.minDistance=0.5;controls.maxPolarAngle=Math.PI/2-0.02;controls.minPolarAngle=0;controls.enableZoom=true;controls.rotateSpeed=0.8;}}));
+
 /* ---------- loop ---------- */
 function resize(){const w=stage.clientWidth,h=stage.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
 window.addEventListener('resize',resize);resize();
 function loop(){requestAnimationFrame(loop);
-  if(tween){tween.t=Math.min(1,tween.t+0.022);const e=tween.t<.5?2*tween.t*tween.t:1-Math.pow(-2*tween.t+2,2)/2;
+  if(tween){{const nw=performance.now();tween.t=Math.min(1,tween.t+Math.min(0.1,(nw-(tween.last||nw-16))/1000)/0.9);tween.last=nw;}const e=tween.t<.5?2*tween.t*tween.t:1-Math.pow(-2*tween.t+2,2)/2;
     camera.position.lerpVectors(tween.fp,tween.to.p,e);controls.target.lerpVectors(tween.ft,tween.to.t,e);if(tween.t>=1)tween=null;}
-  controls.update();renderer.render(scene,camera);placeLabels();placePins();}
+  navStep();controls.update();renderer.render(scene,camera);placeLabels();placePins();}
 loop();
 })();
 </script>
