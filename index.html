@@ -474,7 +474,7 @@ const pinLayer=document.createElement('div');document.body.appendChild(pinLayer)
 let pins=[],pinObjs=new Map(),store=null,showPins=true,placing=false,editing=null,draftPos=null;
 const LS='sapfc-pins-v1';
 // Published plan: pins built into this page so every visitor sees them (filled in from the shared plan).
-const PRESET_PINS=[];
+const PRESET_PINS=[{"title": "Welcome rangoli & diyas", "type": "deco", "notes": "Suggested · Large rangoli with brass diyas in front of the entry gates — first thing guests see.", "x": -6, "z": 0.8, "created": 1793272000000}, {"title": "Live Jalebi & Rabri", "type": "live", "notes": "Suggested · Hot jalebis fried live in a brass kadai, served with rabri. Needs 1 power point and a fire-safe zone.", "x": 7, "z": 3, "created": 1793272000001}, {"title": "Live Chaat counter", "type": "live", "notes": "Suggested · Pani puri, papdi chaat and aloo tikki made to order, next to the orange seating.", "x": 20, "z": 3.5, "created": 1793272000002}, {"title": "Mithai & Diwali gifting", "type": "food", "notes": "Suggested · Display of sweets and gift boxes beside the Belaku totem.", "x": -2, "z": 5.5, "created": 1793272000003}, {"title": "Festive mocktail station", "type": "bev", "notes": "Suggested · Flavour Station cart dressed as a mocktail bar: thandai, kesar badam, nimbu soda.", "x": 6, "z": 11.2, "created": 1793272000004}, {"title": "Diwali photo booth", "type": "booth", "notes": "Suggested · Marigold backdrop with brass ring frame by the garden exit doors.", "x": -9, "z": 13.2, "created": 1793272000005}, {"title": "Lantern & marigold canopy", "type": "deco", "notes": "Suggested · Hanging lanterns and marigold strings over the main corridor.", "x": 12, "z": 2, "created": 1793272000006}, {"title": "Event schedule standee", "type": "sign", "notes": "Suggested · Counter list and timings next to the helpdesk.", "x": -17, "z": 3.6, "created": 1793272000007}, {"title": "Power check for live counters", "type": "power", "notes": "Suggested · Confirm sockets and load near Desi Detour before setup.", "x": 4.5, "z": -5.5, "created": 1793272000008}];
 const presets=()=>PRESET_PINS.map((p,i)=>Object.assign({id:'preset'+i,fixed:true},p));
 function lsLoad(){try{return JSON.parse(localStorage.getItem(LS)||'[]');}catch(e){return [];}}
 function lsSave(){try{localStorage.setItem(LS,JSON.stringify(pins.filter(p=>!p.fixed)));}catch(e){}}
@@ -484,14 +484,14 @@ function renderPins(){
   const list=document.getElementById('pinList');list.textContent='';
   pins.forEach((p,i)=>{const c=color(p.type);
     const m=new THREE.Group();m.position.set(p.x,0,p.z);
-    const stem=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,2.6,8),new THREE.MeshStandardMaterial({color:c}));stem.position.y=1.3;m.add(stem);
-    const head=new THREE.Mesh(new THREE.SphereGeometry(0.32,20,14),new THREE.MeshStandardMaterial({color:c,emissive:c,emissiveIntensity:.25}));head.position.y=2.75;m.add(head);
-    const ring=new THREE.Mesh(new THREE.RingGeometry(0.5,0.75,32),new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:.75,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.y=0.04;m.add(ring);
+    const stem=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,3.4,8),new THREE.MeshStandardMaterial({color:c}));stem.position.y=1.7;m.add(stem);
+    const head=new THREE.Mesh(new THREE.SphereGeometry(0.55,20,14),new THREE.MeshStandardMaterial({color:c,emissive:c,emissiveIntensity:.25}));head.position.y=3.7;m.add(head);
+    const ring=new THREE.Mesh(new THREE.RingGeometry(0.8,1.25,32),new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:.75,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.y=0.04;m.add(ring);
     m.userData.pinId=p.id;m.traverse(o=>{o.userData.pinId=p.id;});pinGroup.add(m);
     const el=document.createElement('div');el.className='pinlbl';el.title=p.notes||p.title;
     const n=document.createElement('span');n.className='num';n.style.background=c;n.textContent=i+1;const t=document.createElement('span');t.textContent=p.title;
     el.append(n,t);el.addEventListener('click',()=>openForm(p));pinLayer.appendChild(el);
-    pinObjs.set(p.id,{mesh:m,el,pos:new THREE.Vector3(p.x,3.3,p.z)});
+    pinObjs.set(p.id,{mesh:m,el,pos:new THREE.Vector3(p.x,4.5,p.z)});
     const li=document.createElement('li');const b=document.createElement('button');
     const n2=n.cloneNode(true);const t2=document.createElement('span');t2.className='pin-title';t2.textContent=p.title;
     const ty=document.createElement('span');ty.className='pin-type';ty.textContent=(PIN_TYPES[p.type]||PIN_TYPES.note)[0];
