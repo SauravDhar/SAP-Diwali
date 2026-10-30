@@ -99,7 +99,7 @@ body.placing #stage canvas{cursor:crosshair}
   <div class="group-label">Camera</div>
   <div class="views" id="views">
     <button data-view="overview" aria-pressed="true">Overview</button>
-    <button data-view="top">Top plan</button>
+    <button data-view="top" id="btnTop">Flat top plan</button><button id="tRotatePlan" hidden>Rotate 90°</button>
     <button data-view="corridor">Main corridor</button>
     <button data-view="desi">Desi Detour &amp; Tandoor</button>
     <button data-view="bamboo">Bamboo Bites</button>
@@ -169,6 +169,11 @@ sceneBg(); matchMedia('(prefers-color-scheme: dark)').addEventListener('change',
 new MutationObserver(sceneBg).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
 
 const camera=new THREE.PerspectiveCamera(45,1,0.1,400);
+const frustumSize = 46;
+const orthoCamera = new THREE.OrthographicCamera(-frustumSize/2, frustumSize/2, frustumSize/2, -frustumSize/2, 0.1, 500);
+let activeCamera = camera;
+let isOrtho = false;
+let planRot = 0; // 0: North up, 1: 90 deg sketch-aligned
 const controls=new THREE.OrbitControls(camera,renderer.domElement);
 controls.enableDamping=true; controls.dampingFactor=0.08; controls.maxPolarAngle=Math.PI/2-0.02; controls.minDistance=0.5; controls.maxDistance=220;
 controls.rotateSpeed=0.8; controls.zoomSpeed=1.2; controls.panSpeed=1.1; controls.screenSpacePanning=false; controls.keyPanSpeed=0;
@@ -389,6 +394,20 @@ labels.push({text:'Seating (green chairs)',pos:new THREE.Vector3(24,2.2,11),zone
   for(const sx of [-0.75,0.75]){const wh=new THREE.Mesh(new THREE.TorusGeometry(0.28,0.04,8,20),black);wh.position.set(sx,0.3,0.53);c.add(wh);}
   labels.push({text:'Flavour Station cart',pos:new THREE.Vector3(-6,3.3,12.5)});
   labels.push({text:'Window lounge',pos:new THREE.Vector3(3,3.2,13.5),zone:true});
+  /* Two entry gates for Window lounge on either side of the running space */
+  function addLoungeGate(gx, gz, name){
+    const gt = new THREE.Group(); gt.position.set(gx, 0, gz); g.add(gt);
+    box(gt, 0.28, 1.0, 1.2, steel, -0.65, 0, 0);
+    box(gt, 0.28, 1.0, 1.2, steel, 0.65, 0, 0);
+    box(gt, 0.18, 0.02, 0.35, M(0x2fe090, {emissive:0x2fe090, emissiveIntensity:0.6}), -0.65, 1.01, 0);
+    box(gt, 0.18, 0.02, 0.35, M(0x2fe090, {emissive:0x2fe090, emissiveIntensity:0.6}), 0.65, 1.01, 0);
+    box(gt, 0.65, 0.75, 0.04, glass, 0, 0.35, 0, {noShadow:true});
+    box(gt, 0.04, 1.0, 0.8, darkSteel, -1.15, 0, 0); box(gt, 0.04, 1.0, 0.8, darkSteel, 1.15, 0, 0);
+    box(gt, 0.02, 0.85, 0.75, glass, -0.9, 0.1, 0, {noShadow:true}); box(gt, 0.02, 0.85, 0.75, glass, 0.9, 0.1, 0, {noShadow:true});
+    labels.push({text: name, pos: new THREE.Vector3(gx, 2.3, gz), zone: true});
+  }
+  addLoungeGate(5.5, 6.0, 'Window Lounge Gate (West)');
+  addLoungeGate(-2.5, 6.0, 'Window Lounge Gate (East)');
   // Belaku wooden totem with planters, across from the gates
   const t=new THREE.Group();t.position.set(4.5,0,7.4);g.add(t);
   const tm=M(0xa8774c,{roughness:.7});box(t,4,3,1.1,tm,0,0,0);
@@ -399,11 +418,11 @@ labels.push({text:'Seating (green chairs)',pos:new THREE.Vector3(24,2.2,11),zone
   // purple standee
   box(g,0.7,2,0.25,M(0x3b2f73),-0.5,0,7.3);})();
 
-/* Helpdesk kiosk at the east end of the corridor */
-(function(){const k=new THREE.Group();k.position.set(19,0,4.7);k.rotation.y=Math.PI;scene.add(k);
+/* Helpdesk kiosk: pushed safely behind the corridor line, situated between Paan and seating */
+(function(){const k=new THREE.Group();k.position.set(11,0,8.0);k.rotation.y=Math.PI;scene.add(k);
   box(k,0.2,2.8,2.6,M(0x9a7350),-1.2,0,0);box(k,0.2,2.8,2.6,M(0x9a7350),1.2,0,0);box(k,2.6,0.25,2.6,M(0x9a7350),0,2.8,0);
   box(k,2.2,0.9,0.8,white,0,0,0.3);box(k,1.2,0.8,0.05,M(0xdfe7f0),0,1.3,-1.1);
-  labels.push({text:'Helpdesk kiosk',pos:new THREE.Vector3(19,3.6,4.7)});})();
+  labels.push({text:'Helpdesk kiosk',pos:new THREE.Vector3(11,3.6,8.0)});})();
 labels.push({text:'Main corridor',pos:new THREE.Vector3(-3,1.4,2),zone:true});
 
 // wood slat ceiling over the corridor and orange seating (toggle)
@@ -446,7 +465,7 @@ const lblLayer=document.createElement('div');document.body.appendChild(lblLayer)
 labels.forEach(l=>{const d=document.createElement('div');d.className='lbl'+(l.zone?' zone':'');d.textContent=l.text;lblLayer.appendChild(d);l.el=d;});
 let showLabels=true;const v=new THREE.Vector3();
 function placeLabels(){const W=renderer.domElement.clientWidth,H=renderer.domElement.clientHeight;
-  labels.forEach(l=>{if(!showLabels){l.el.hidden=true;return;}v.copy(l.pos).project(camera);
+  labels.forEach(l=>{if(!showLabels){l.el.hidden=true;return;}v.copy(l.pos).project(activeCamera);
     const vis=v.z<1&&v.z>-1&&Math.abs(v.x)<1.05&&Math.abs(v.y)<1.05;l.el.hidden=!vis;
     if(vis){l.el.style.transform=`translate(${(v.x*.5+.5)*W}px,${(-v.y*.5+.5)*H}px) translate(-50%,-100%)`;}});}
 
@@ -460,7 +479,67 @@ const views={
 for(const k in views){views[k][0][0]*=-1;views[k][1][0]*=-1;}
 views.overview=[[-6,52,58],[2,0,-4]];views.top=[[-3,92,-3.95],[-3,0,-4]];
 let tween=null;
-function go(name,instant){const [p,t]=views[name];const to={p:new THREE.Vector3(...p),t:new THREE.Vector3(...t)};
+function updateOrthoCam(){
+  if(planRot === 1){
+    orthoCamera.up.set(-1, 0, 0); // rotated 90 deg: Asian Veg at top, matches paper sketch orientation!
+    orthoCamera.zoom = 0.65;
+  } else {
+    orthoCamera.up.set(0, 0, -1); // standard architectural orientation (North up)
+    orthoCamera.zoom = 1.0;
+  }
+  orthoCamera.lookAt(controls.target);
+  orthoCamera.updateProjectionMatrix();
+}
+
+function setOrthoMode(on){
+  isOrtho = on;
+  const rotBtn = document.getElementById('tRotatePlan');
+  if(rotBtn) rotBtn.hidden = !on;
+  if(on){
+    activeCamera = orthoCamera;
+    controls.object = orthoCamera;
+    controls.enableRotate = false; // Pure 2D flat top plan: drag to pan, wheel to zoom!
+    controls.screenSpacePanning = true;
+    controls.minZoom = 0.35;
+    controls.maxZoom = 4.0;
+    controls.target.set(0, 0, -2);
+    orthoCamera.position.set(0, 150, -2);
+    orthoCamera.zoom = 1.0;
+    updateOrthoCam();
+    controls.update();
+  } else {
+    activeCamera = camera;
+    controls.object = camera;
+    controls.enableRotate = true;
+    controls.screenSpacePanning = false;
+    controls.minDistance = 0.5;
+    controls.maxDistance = 220;
+    controls.maxPolarAngle = Math.PI/2 - 0.02;
+    controls.minPolarAngle = 0;
+  }
+}
+
+const rotPlanBtn = document.getElementById('tRotatePlan');
+if(rotPlanBtn){
+  rotPlanBtn.addEventListener('click', () => {
+    planRot = (planRot + 1) % 2;
+    rotPlanBtn.setAttribute('aria-pressed', planRot === 1);
+    rotPlanBtn.textContent = planRot === 1 ? 'View: Match Sketch' : 'View: North up';
+    updateOrthoCam();
+    controls.update();
+  });
+}
+
+function go(name,instant){
+  if(name === 'top'){
+    tween = null;
+    setOrthoMode(true);
+    return;
+  }
+  if(isOrtho){
+    setOrthoMode(false);
+  }
+  const [p,t]=views[name];const to={p:new THREE.Vector3(...p),t:new THREE.Vector3(...t)};
   if(instant||matchMedia('(prefers-reduced-motion: reduce)').matches){camera.position.copy(to.p);controls.target.copy(to.t);tween=null;return;}
   tween={fp:camera.position.clone(),ft:controls.target.clone(),to,t:0};}
 document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{
@@ -618,9 +697,18 @@ function renderPins(){
   document.getElementById('pinEmpty').hidden=pins.length>0;
   pinGroup.visible=showPins;}
 function placePins(){const W=renderer.domElement.clientWidth,H=renderer.domElement.clientHeight;
-  pinObjs.forEach(o=>{if(!showPins){o.el.hidden=true;return;}v.copy(o.pos).project(camera);const vis=v.z<1&&v.z>-1&&Math.abs(v.x)<1.05&&Math.abs(v.y)<1.05;o.el.hidden=!vis;
+  pinObjs.forEach(o=>{if(!showPins){o.el.hidden=true;return;}v.copy(o.pos).project(activeCamera);const vis=v.z<1&&v.z>-1&&Math.abs(v.x)<1.05&&Math.abs(v.y)<1.05;o.el.hidden=!vis;
     if(vis)o.el.style.transform=`translate(${(v.x*.5+.5)*W}px,${(-v.y*.5+.5)*H}px) translate(-50%,-100%)`;});}
-function flyTo(p){tween={fp:camera.position.clone(),ft:controls.target.clone(),to:{p:new THREE.Vector3(p.x+9,10,p.z+12),t:new THREE.Vector3(p.x,0.5,p.z)},t:0};}
+function flyTo(p){
+  if(isOrtho){
+    controls.target.set(p.x, 0, p.z);
+    orthoCamera.position.set(p.x, 120, p.z);
+    updateOrthoCam();
+    controls.update();
+    return;
+  }
+  tween={fp:camera.position.clone(),ft:controls.target.clone(),to:{p:new THREE.Vector3(p.x+9,10,p.z+12),t:new THREE.Vector3(p.x,0.5,p.z)},t:0};
+}
 const form=document.getElementById('pinForm'),err=document.getElementById('pinErr');
 function openForm(p,pos){editing=p||null;draftPos=pos||null;err.hidden=true;
   document.getElementById('pinFormTitle').textContent=p?'Edit pin':'New pin';
@@ -655,7 +743,7 @@ toggle('tPins',on=>{showPins=on;pinGroup.visible=on;});
 const ray=new THREE.Raycaster(),ndc=new THREE.Vector2();let down=null;
 renderer.domElement.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};});
 renderer.domElement.addEventListener('pointerup',e=>{if(!down||Math.hypot(e.clientX-down.x,e.clientY-down.y)>6){down=null;return;}down=null;
-  const r=renderer.domElement.getBoundingClientRect();ndc.set(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);ray.setFromCamera(ndc,camera);
+  const r=renderer.domElement.getBoundingClientRect();ndc.set(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);ray.setFromCamera(ndc,activeCamera);
   if(!placing&&showPins){const h=ray.intersectObjects(pinGroup.children,true)[0];if(h){const p=pins.find(q=>q.id===h.object.userData.pinId);if(p)openForm(p);}return;}
   if(!placing)return;const h=ray.intersectObject(floor)[0];if(!h)return;setPlacing(false);openForm(null,h.point);});
 // storage: shared plan when the page runs on claude.ai, this browser otherwise
@@ -737,12 +825,12 @@ function navStep(){const now=performance.now(),dt=Math.min(0.05,(now-last)/1000)
   clampTarget();if(camera.position.y<0.4)camera.position.y=0.4;}
 // double-click a spot to glide there
 renderer.domElement.addEventListener('dblclick',e=>{const r=renderer.domElement.getBoundingClientRect();
-  const n=new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);const rc=new THREE.Raycaster();rc.setFromCamera(n,camera);
+  const n=new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);const rc=new THREE.Raycaster();rc.setFromCamera(n,activeCamera);
   const h=rc.intersectObjects(scene.children,true).find(i=>i.object.visible&&!(i.object.material&&i.object.material.transparent&&i.object.material.opacity<0.5));if(!h)return;
   const p=h.point.clone();if(walk){p.y=1.65;const off=controls.target.clone().sub(camera.position);tween={fp:camera.position.clone(),ft:controls.target.clone(),to:{p,t:p.clone().add(off)},t:0};}
   else{const off=camera.position.clone().sub(controls.target).multiplyScalar(0.6);tween={fp:camera.position.clone(),ft:controls.target.clone(),to:{p:h.point.clone().add(off),t:h.point.clone()},t:0};}});
 // walk mode: eye-level, drag to look around
-function setWalk(on){walk=on;const b=document.getElementById('tWalk');b.setAttribute('aria-pressed',on);
+function setWalk(on){if(isOrtho) setOrthoMode(false); walk=on;const b=document.getElementById('tWalk');b.setAttribute('aria-pressed',on);
   if(on){const t=controls.target.clone();t.y=1.65;const dir=t.clone().sub(camera.position);dir.y=0;if(dir.lengthSq()<1e-4)dir.set(0,0,-1);dir.normalize();
     controls.minDistance=0.1;controls.maxPolarAngle=Math.PI-0.15;controls.minPolarAngle=0.15;controls.enableZoom=false;controls.rotateSpeed=-0.35;
     const eye=t.clone().sub(dir.clone().multiplyScalar(0.0));const p=new THREE.Vector3(eye.x,1.65,eye.z);
@@ -754,12 +842,16 @@ document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',(
   controls.minDistance=0.5;controls.maxPolarAngle=Math.PI/2-0.02;controls.minPolarAngle=0;controls.enableZoom=true;controls.rotateSpeed=0.8;}}));
 
 /* ---------- loop ---------- */
-function resize(){const w=stage.clientWidth,h=stage.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
+function resize(){
+  const w=stage.clientWidth,h=stage.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();
+  const asp=w/h; orthoCamera.left = -frustumSize*asp/2; orthoCamera.right = frustumSize*asp/2;
+  orthoCamera.top = frustumSize/2; orthoCamera.bottom = -frustumSize/2; orthoCamera.updateProjectionMatrix();
+}
 window.addEventListener('resize',resize);resize();
 function loop(){requestAnimationFrame(loop);
   if(tween){{const nw=performance.now();tween.t=Math.min(1,tween.t+Math.min(0.1,(nw-(tween.last||nw-16))/1000)/0.9);tween.last=nw;}const e=tween.t<.5?2*tween.t*tween.t:1-Math.pow(-2*tween.t+2,2)/2;
     camera.position.lerpVectors(tween.fp,tween.to.p,e);controls.target.lerpVectors(tween.ft,tween.to.t,e);if(tween.t>=1)tween=null;}
-  navStep();controls.update();renderer.render(scene,camera);placeLabels();placePins();}
+  navStep();controls.update();renderer.render(scene,activeCamera);placeLabels();placePins();}
 loop();
 })();
 </script>
