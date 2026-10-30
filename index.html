@@ -1,4 +1,81 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>body{margin:0;font:14px system-ui,sans-serif}</style></head><body>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>body{margin:0;font:14px system-ui,sans-serif}
+/* ---------- Architectural Blueprint Styling ---------- */
+body.blueprint {
+  --bg: #071526;
+  --scene: #071526;
+  --card: rgba(10, 28, 48, 0.94);
+  --fg: #d6f0ff;
+  --muted: #6ea3c7;
+  --line: #1c4b75;
+  --chip: #0d2847;
+  --accent: #00d4ff;
+  --accent-fg: #071526;
+}
+body.blueprint .card {
+  box-shadow: 0 10px 40px rgba(0, 180, 255, 0.22);
+  border: 1px solid rgba(80, 210, 255, 0.45);
+  backdrop-filter: blur(12px);
+}
+body.blueprint .lbl {
+  background: rgba(8, 28, 52, 0.92);
+  color: #cff0ff;
+  border: 1px solid #38bdf8;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+  font-family: ui-monospace, Consolas, "Bricolage Grotesque", monospace;
+  letter-spacing: 0.04em;
+}
+body.blueprint .lbl.zone {
+  background: rgba(14, 46, 80, 0.94);
+  border-color: #00e5ff;
+  color: #ffffff;
+}
+body.blueprint .pinlbl {
+  background: rgba(10, 32, 58, 0.94);
+  color: #e0f4ff;
+  border: 1px solid #00d4ff;
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.35);
+  font-family: ui-monospace, Consolas, "Bricolage Grotesque", monospace;
+}
+body.blueprint .num {
+  background: #00d4ff !important;
+  color: #071526 !important;
+  font-weight: 800;
+}
+#blueprintTitleBlock {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right, 0px));
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+  z-index: 5;
+  background: rgba(8, 24, 42, 0.92);
+  border: 1.5px solid #00d4ff;
+  border-radius: 8px;
+  padding: 10px 14px;
+  box-shadow: 0 8px 30px rgba(0, 180, 255, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-family: ui-monospace, Consolas, monospace;
+  pointer-events: none;
+}
+#blueprintTitleBlock .bp-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.08em;
+}
+#blueprintTitleBlock .bp-sub {
+  font-size: 11px;
+  color: #38bdf8;
+  letter-spacing: 0.05em;
+}
+#blueprintTitleBlock .bp-meta {
+  font-size: 9.5px;
+  color: #6ea3c7;
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}
+</style>
+</head><body>
 <title>SAP Labs BLR-11 Food Court 3D</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -115,7 +192,7 @@ body.placing #stage canvas{cursor:crosshair}
     <button id="tLabels" aria-pressed="true">Labels</button>
     <button id="tCeiling" aria-pressed="false">Wood ceiling</button>
     <button id="tSpin" aria-pressed="false">Auto-rotate</button>
-    <button id="tHide">Hide panel</button>
+    <button id="tBlueprint" aria-pressed="false">Blueprint style</button><button id="tHide">Hide panel</button>
   </div>
   <section class="plan" aria-labelledby="planTitle">
     <div class="plan-head"><h2 id="planTitle">Event plan</h2><button id="addPin" class="btn-primary" aria-pressed="false">+ Add pin</button></div>
@@ -250,6 +327,65 @@ const floorTex=tex((X1-X0)*PX,(Z1-Z0)*PX,(g,w,h)=>{g.fillStyle='#8f8b86';g.fillR
   g.strokeStyle='rgba(0,0,0,.07)';g.lineWidth=1.5;for(let x=0;x<w;x+=1.2*PX){g.beginPath();g.moveTo(x,0);g.lineTo(x,h);g.stroke();}
   for(let y=0;y<h;y+=0.6*PX){g.beginPath();g.moveTo(0,y);g.lineTo(w,y);g.stroke();}});
 floorTex.wrapS=floorTex.wrapT=THREE.ClampToEdgeWrapping;
+const blueprintFloorTex = tex((X1-X0)*PX, (Z1-Z0)*PX, (g, w, h) => {
+  // Deep blueprint drafting navy
+  g.fillStyle = '#0a1d33';
+  g.fillRect(0, 0, w, h);
+  const zy = z => (z - Z0) * PX, xx = x => (x - X0) * PX;
+  const rect = (x1, z1, x2, z2, c) => { g.fillStyle = c; g.fillRect(xx(x1), zy(z1), xx(x2) - xx(x1), zy(z2) - zy(z1)); };
+  
+  // Minor 1m grid
+  g.strokeStyle = 'rgba(70, 160, 230, 0.12)';
+  g.lineWidth = 1;
+  for(let x = X0; x <= X1; x += 1){ g.beginPath(); g.moveTo(xx(x), 0); g.lineTo(xx(x), h); g.stroke(); }
+  for(let z = Z0; z <= Z1; z += 1){ g.beginPath(); g.moveTo(0, zy(z)); g.lineTo(w, zy(z)); g.stroke(); }
+  
+  // Major 5m grid
+  g.strokeStyle = 'rgba(100, 205, 255, 0.28)';
+  g.lineWidth = 1.5;
+  for(let x = Math.ceil(X0/5)*5; x <= X1; x += 5){ g.beginPath(); g.moveTo(xx(x), 0); g.lineTo(xx(x), h); g.stroke(); }
+  for(let z = Math.ceil(Z0/5)*5; z <= Z1; z += 5){ g.beginPath(); g.moveTo(0, zy(z)); g.lineTo(w, zy(z)); g.stroke(); }
+  
+  // Corridor running space
+  rect(X0, -2, X1, 6, '#0f2947');
+  
+  // Corridor center dashed line
+  g.strokeStyle = 'rgba(80, 210, 255, 0.5)';
+  g.lineWidth = 2;
+  g.setLineDash([10, 8]);
+  g.beginPath(); g.moveTo(xx(X0), zy(2)); g.lineTo(xx(X1), zy(2)); g.stroke();
+  g.setLineDash([]);
+  
+  // Corridor boundary lines (solid cyan drafting lines)
+  g.strokeStyle = 'rgba(100, 220, 255, 0.75)';
+  g.lineWidth = 2.5;
+  g.beginPath(); g.moveTo(xx(X0), zy(-2)); g.lineTo(xx(X1), zy(-2)); g.stroke();
+  g.beginPath(); g.moveTo(xx(X0), zy(6)); g.lineTo(xx(X1), zy(6)); g.stroke();
+  
+  // Cross bands / queue zones with fine blueprint diagonal hatching
+  const drawHatch = (x1, z1, x2, z2, color) => {
+    g.save();
+    g.beginPath(); g.rect(xx(x1), zy(z1), xx(x2)-xx(x1), zy(z2)-zy(z1)); g.clip();
+    g.strokeStyle = color || 'rgba(100, 210, 255, 0.28)';
+    g.lineWidth = 1.5;
+    const rx1 = xx(x1), rx2 = xx(x2), rz1 = zy(z1), rz2 = zy(z2);
+    for(let k = rx1 - (rz2 - rz1); k < rx2; k += 10){
+      g.beginPath(); g.moveTo(k, rz1); g.lineTo(k + (rz2 - rz1), rz2); g.stroke();
+    }
+    g.restore();
+  };
+  drawHatch(-30, -2, -8, 0.8);
+  drawHatch(13, -2, 34, 0.8);
+  drawHatch(-8, -18, -5.2, -2);
+  
+  // Technical dimension annotations
+  g.fillStyle = 'rgba(120, 215, 255, 0.65)';
+  g.font = 'bold 12px ui-monospace, Consolas, monospace';
+  for(let x = Math.ceil(X0/10)*10; x <= X1; x += 10){
+    g.fillText(x + 'm', xx(x) + 4, zy(Z0) + 16);
+  }
+});
+blueprintFloorTex.wrapS = blueprintFloorTex.wrapT = THREE.ClampToEdgeWrapping;
 const floor=new THREE.Mesh(new THREE.PlaneGeometry(X1-X0,Z1-Z0),M(0xffffff,{map:floorTex,roughness:.55}));
 floor.rotation.x=-Math.PI/2;floor.position.set((X0+X1)/2,0,(Z0+Z1)/2);floor.receiveShadow=true;scene.add(floor);
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(240,240),M(0xd8d2c8));ground.rotation.x=-Math.PI/2;ground.position.y=-0.02;ground.receiveShadow=true;scene.add(ground);
@@ -469,6 +605,66 @@ function placeLabels(){const W=renderer.domElement.clientWidth,H=renderer.domEle
     const vis=v.z<1&&v.z>-1&&Math.abs(v.x)<1.05&&Math.abs(v.y)<1.05;l.el.hidden=!vis;
     if(vis){l.el.style.transform=`translate(${(v.x*.5+.5)*W}px,${(-v.y*.5+.5)*H}px) translate(-50%,-100%)`;}});}
 
+/* ---------- blueprint mode engine ---------- */
+let blueprintMode = false;
+const bpFillMat = new THREE.MeshStandardMaterial({color: 0x0c2542, roughness: 0.85, metalness: 0.1, transparent: true, opacity: 0.9});
+const bpWallMat = new THREE.MeshStandardMaterial({color: 0x091c33, roughness: 0.9, metalness: 0.05, transparent: true, opacity: 0.95});
+const bpLineMat = new THREE.LineBasicMaterial({color: 0x5ce1e6, linewidth: 1.5});
+const bpGlassLineMat = new THREE.LineBasicMaterial({color: 0xaef6f8, linewidth: 2});
+
+function initBlueprintEdges(){
+  scene.traverse(o => {
+    if(!o.isMesh || o === floor || o === ground || o.parent === pinGroup || o.userData.isPin) return;
+    if(!o.userData.origMaterial) o.userData.origMaterial = o.material;
+    if(!o.userData.bpEdge && o.geometry){
+      try {
+        const eg = new THREE.EdgesGeometry(o.geometry, 28);
+        const lm = (o.material === glass) ? bpGlassLineMat : bpLineMat;
+        const ls = new THREE.LineSegments(eg, lm);
+        ls.visible = false;
+        o.add(ls);
+        o.userData.bpEdge = ls;
+      } catch(e){}
+    }
+  });
+}
+
+function setBlueprint(on){
+  blueprintMode = on;
+  initBlueprintEdges();
+  document.body.classList.toggle('blueprint', on);
+  const btn = document.getElementById('tBlueprint');
+  if(btn) btn.setAttribute('aria-pressed', on);
+  const tb = document.getElementById('blueprintTitleBlock');
+  if(tb) tb.hidden = !on;
+  
+  if(on){
+    scene.background = new THREE.Color(0x071526);
+    floor.material.map = blueprintFloorTex;
+    floor.material.needsUpdate = true;
+    ground.material.color.setHex(0x061120);
+    sun.intensity = 0.4;
+    fill.intensity = 0.2;
+    scene.traverse(o => {
+      if(!o.isMesh || o === floor || o === ground || o.parent === pinGroup || o.userData.isPin) return;
+      if(o.userData.bpEdge) o.userData.bpEdge.visible = true;
+      o.material = (o.geometry && o.geometry.parameters && o.geometry.parameters.height > 2) ? bpWallMat : bpFillMat;
+    });
+  } else {
+    sceneBg();
+    floor.material.map = floorTex;
+    floor.material.needsUpdate = true;
+    ground.material.color.setHex(0xd8d2c8);
+    sun.intensity = 0.75;
+    fill.intensity = 0.25;
+    scene.traverse(o => {
+      if(!o.isMesh || o === floor || o === ground || o.parent === pinGroup || o.userData.isPin) return;
+      if(o.userData.bpEdge) o.userData.bpEdge.visible = false;
+      if(o.userData.origMaterial) o.material = o.userData.origMaterial;
+    });
+  }
+}
+
 /* ---------- views ---------- */
 const views={
   overview:[[-2,50,56],[-6,0,-2]], top:[[3,88,-1.95],[3,0,-2]],
@@ -534,6 +730,7 @@ function go(name,instant){
   if(name === 'top'){
     tween = null;
     setOrthoMode(true);
+    setBlueprint(true);
     return;
   }
   if(isOrtho){
@@ -549,6 +746,7 @@ go('overview',true);
 
 function toggle(id,fn){const b=document.getElementById(id);b.addEventListener('click',()=>{const on=b.getAttribute('aria-pressed')!=='true';b.setAttribute('aria-pressed',on);fn(on);});}
 toggle('tLabels',on=>{showLabels=on;});
+toggle('tBlueprint', on=>{ setBlueprint(on); });
 toggle('tCeiling',on=>{ceiling.visible=on;});
 toggle('tSpin',on=>{controls.autoRotate=on;controls.autoRotateSpeed=0.6;});
 const card=document.getElementById('card'),show=document.getElementById('show');
@@ -855,4 +1053,9 @@ function loop(){requestAnimationFrame(loop);
 loop();
 })();
 </script>
+<div id="blueprintTitleBlock" hidden>
+  <div class="bp-title">SAP LABS · BLR-11 FOOD COURT</div>
+  <div class="bp-sub">DIWALI EVENT PLAN · ARCHITECTURAL BLUEPRINT</div>
+  <div class="bp-meta">SCALE 1:100 · 2D ORTHOGRAPHIC TOP PLAN · REV 2.1</div>
+</div>
 </body></html>
