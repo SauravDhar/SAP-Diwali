@@ -224,7 +224,7 @@ body.placing #stage canvas{cursor:crosshair}
   <label for="pinType">Type<select id="pinType"></select></label>
   <label for="pinNotes">What happens here<textarea id="pinNotes" maxlength="500" placeholder="e.g. Hot jalebis fried live in a brass kadai, 12:30–3 PM. Needs 1 power point."></textarea></label>
   <div class="err" id="pinErr" hidden></div>
-  <div class="row"><button type="button" class="btn-danger" id="pinDelete" hidden>Delete</button><button type="button" id="pinCancel">Cancel</button><button type="submit" class="btn-primary" id="pinSave">Save pin</button></div>
+  <div class="row"><button type="button" class="btn-danger" id="pinDelete" hidden>Delete</button><button type="button" id="pinMove" hidden>Move</button><button type="button" id="pinCancel">Cancel</button><button type="submit" class="btn-primary" id="pinSave">Save pin</button></div>
 </form>
 
 
@@ -917,8 +917,12 @@ const PRESET_PINS = [
  }
 ];
 const presets=()=>PRESET_PINS.map((p,i)=>Object.assign({id:'preset'+i,fixed:true},p));
-function lsLoad(){let a=[];try{a=JSON.parse(localStorage.getItem(LS)||'[]');}catch(e){a=[];}
-  const seen=new Set(PRESET_PINS.map(p=>String(p.title).trim().toLowerCase()));const out=[];
+const SEEDK='sapfc-seed-v3';
+function seedCopies(){return PRESET_PINS.map((p,i)=>Object.assign({},p,{id:'st'+String(i+1).padStart(2,'0')}));}
+function lsLoad(){let a=[];try{
+    if(!localStorage.getItem(SEEDK)){localStorage.setItem(LS,JSON.stringify(seedCopies()));localStorage.setItem(SEEDK,'1');}
+    a=JSON.parse(localStorage.getItem(LS)||'[]');}catch(e){a=seedCopies();}
+  const seen=new Set();const out=[];
   for(const p of a){const k=String(p.title||'').trim().toLowerCase();if(!k||seen.has(k))continue;seen.add(k);out.push(p);}
   if(out.length!==a.length){try{localStorage.setItem(LS,JSON.stringify(out));}catch(e){}}
   return out;}
@@ -978,7 +982,7 @@ function openForm(p,pos){editing=p||null;draftPos=pos||null;err.hidden=true;
   document.getElementById('pinFormTitle').textContent=p?'Edit pin':'New pin';
   document.getElementById('pinTitle').value=p?p.title:'';typeSel.value=p?p.type:'live';document.getElementById('pinNotes').value=p?(p.notes||''):'';
   const ro=!!(p&&p.fixed);['pinTitle','pinType','pinNotes'].forEach(id=>{document.getElementById(id).disabled=ro;});
-  document.getElementById('pinSave').hidden=ro;document.getElementById('pinDelete').hidden=!p||ro;
+  document.getElementById('pinSave').hidden=ro;document.getElementById('pinDelete').hidden=!p||ro;document.getElementById('pinMove').hidden=!p||ro;
   if(ro)document.getElementById('pinFormTitle').textContent='Published pin';
   document.getElementById('pinCancel').textContent=ro?'Close':'Cancel';form.hidden=false;if(!ro)document.getElementById('pinTitle').focus();}
 function closeForm(){form.hidden=true;editing=null;draftPos=null;}
@@ -999,17 +1003,24 @@ document.getElementById('pinDelete').addEventListener('click',async()=>{if(!edit
   b.dataset.confirm='';b.textContent='Delete';
   try{if(store)await store.doc(editing.id).delete();else{pins=pins.filter(p=>p!==editing);lsSave();renderPins();}closeForm();}
   catch(ex){err.textContent='Could not delete the pin. Try again.';err.hidden=false;}});
-const addBtn=document.getElementById('addPin'),hint=document.getElementById('placeHint');
+const addBtn=document.getElementById('addPin'),hint=document.getElementById('placeHint');let moving=null;
+document.getElementById('pinMove').addEventListener('click',()=>{if(!editing)return;moving=editing;closeForm();
+  placing=true;hint.textContent='Click the new spot for "'+moving.title+'" · Esc to cancel';hint.hidden=false;document.body.classList.add('placing');});
+async function finishMove(pt){const p=moving;moving=null;placing=false;hint.hidden=true;document.body.classList.remove('placing');
+  hint.textContent='Click a spot on the floor to drop the pin · Esc to cancel';
+  const body={title:p.title,type:p.type,notes:p.notes||'',x:+pt.x.toFixed(2),z:+pt.z.toFixed(2),created:p.created||Date.now()};
+  try{if(store)await store.doc(p.id).set(body);else{Object.assign(p,body);lsSave();renderPins();}}
+  catch(e){note.textContent='Could not move the pin. Check your connection and try again.';}}
 function setPlacing(on){placing=on;addBtn.setAttribute('aria-pressed',on);addBtn.textContent=on?'Cancel':'+ Add pin';hint.hidden=!on;document.body.classList.toggle('placing',on);if(on)closeForm();}
 addBtn.addEventListener('click',()=>setPlacing(!placing));
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){setPlacing(false);closeForm();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){moving=null;hint.textContent='Click a spot on the floor to drop the pin · Esc to cancel';setPlacing(false);closeForm();}});
 toggle('tPins',on=>{showPins=on;pinGroup.visible=on;});
 const ray=new THREE.Raycaster(),ndc=new THREE.Vector2();let down=null;
 renderer.domElement.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};});
 renderer.domElement.addEventListener('pointerup',e=>{if(!down||Math.hypot(e.clientX-down.x,e.clientY-down.y)>6){down=null;return;}down=null;
   const r=renderer.domElement.getBoundingClientRect();ndc.set(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);ray.setFromCamera(ndc,activeCamera);
-  if(!placing&&showPins){const h=ray.intersectObjects(pinGroup.children,true)[0];if(h){const p=pins.find(q=>q.id===h.object.userData.pinId);if(p)openForm(p);}return;}
-  if(!placing)return;const h=ray.intersectObject(floor)[0];if(!h)return;setPlacing(false);openForm(null,h.point);});
+  if(!placing&&!moving&&showPins){const h=ray.intersectObjects(pinGroup.children,true)[0];if(h){const p=pins.find(q=>q.id===h.object.userData.pinId);if(p)openForm(p);}return;}
+  if(!placing)return;const h=ray.intersectObject(floor)[0];if(!h)return;if(moving){finishMove(h.point);return;}setPlacing(false);openForm(null,h.point);});
 // storage: shared plan when the page runs on claude.ai, this browser otherwise
 /* Google Sheets shared plan (GitHub site) */
 const KEYLS='sapfc-editkey';let editKey='';try{editKey=localStorage.getItem(KEYLS)||'';}catch(e){}
@@ -1029,11 +1040,11 @@ function startSheet(){
     sheetCall({action:'check'}).then(()=>{try{localStorage.setItem(KEYLS,k);}catch(e){}document.getElementById('editKey').value='';setEditable(true);},
       ()=>{editKey='';note.textContent='That edit code is not right. Ask the organiser for it.';});});}
 const note=document.getElementById('saveNote');
-pins=presets().concat(lsLoad());renderPins();note.textContent=PRESET_PINS.length?'Published plan · pins you add save in this browser only':'Saved in this browser only';
+pins=lsLoad();renderPins();note.textContent='Pins save in this browser only';
 (async()=>{let db=null;try{db=window.claude&&window.claude.use?await window.claude.use('db'):null;}catch(e){db=null;}
   if(!db){if(SHEET_URL)startSheet();return;}store=db.collection('pins');note.textContent='Shared plan · syncing…';
   store.orderBy('created').onSnapshot(s=>{pins=s.docs.map(d=>Object.assign({id:d.id},d.data()));renderPins();note.textContent='Shared plan · everyone with access sees these pins';},
-    ()=>{store=null;note.textContent='Could not load the shared plan; pins are saved in this browser only';pins=presets().concat(lsLoad());renderPins();});})();
+    ()=>{store=null;note.textContent='Could not load the shared plan; pins are saved in this browser only';pins=lsLoad();renderPins();});})();
 
 /* copy / paste pins between browsers */
 (function(){const box=document.getElementById('xfer'),ta=document.getElementById('xferText'),xn=document.getElementById('xferNote'),imp=document.getElementById('xferImport');
@@ -1049,8 +1060,8 @@ pins=presets().concat(lsLoad());renderPins();note.textContent=PRESET_PINS.length
   if(clr){clr.addEventListener('click',()=>{
     if(clr.dataset.confirm!=='1'){clr.dataset.confirm='1';clr.textContent='Tap again to confirm';setTimeout(()=>{clr.dataset.confirm='';clr.textContent='Clear all pins';},3000);return;}
     clr.dataset.confirm='';clr.textContent='Clear all pins';
-    try{localStorage.removeItem(LS);}catch(e){}
-    pins=presets();renderPins();
+    if(store){Promise.all(pins.map(p=>store.doc(p.id).delete())).catch(()=>{});return;}
+    pins=seedCopies();lsSave();renderPins();
   });}
   imp.addEventListener('click',async()=>{let arr;try{arr=JSON.parse(ta.value.trim().replace(/^SAPFC-PINS\s*/,''));if(!Array.isArray(arr))throw 0;}catch(e){xn.textContent='That code is not a pin code. Copy it again with Copy pins.';return;}
     const have=new Set(pins.map(p=>p.title+'|'+p.x+'|'+p.z));let n=0;imp.disabled=true;
