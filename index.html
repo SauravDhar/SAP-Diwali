@@ -307,7 +307,7 @@ function signTex(name,bg,fg){return tex(512,512,(g,w,h)=>{g.clearRect(0,0,w,h);g
 /* ---------- floor ---------- */
 // Plan (metres): main corridor runs along X at z -2..6. South of it: Desi Detour block (west),
 // gates/lobby block, garden passage, Global Grub block (east). North of it: seating + lounge along the glass.
-const X0=-32,X1=38,Z0=-20,Z1=16,PX=28;
+const X0=-32,X1=46,Z0=-20,Z1=16,PX=24;
 const floorTex=tex((X1-X0)*PX,(Z1-Z0)*PX,(g,w,h)=>{g.fillStyle='#8f8b86';g.fillRect(0,0,w,h);const r=rng(3);
   for(let i=0;i<14000;i++){g.fillStyle=r()<.5?'rgba(255,255,255,.07)':'rgba(0,0,0,.07)';g.fillRect(r()*w,r()*h,2,2);}
   const zy=z=>(z-Z0)*PX, xx=x=>(x-X0)*PX, rect=(x1,z1,x2,z2,c)=>{g.fillStyle=c;g.fillRect(xx(x1),zy(z1),xx(x2)-xx(x1),zy(z2)-zy(z1));};
@@ -388,7 +388,7 @@ const blueprintFloorTex = tex((X1-X0)*PX, (Z1-Z0)*PX, (g, w, h) => {
 blueprintFloorTex.wrapS = blueprintFloorTex.wrapT = THREE.ClampToEdgeWrapping;
 const floor=new THREE.Mesh(new THREE.PlaneGeometry(X1-X0,Z1-Z0),M(0xffffff,{map:floorTex,roughness:.55}));
 floor.rotation.x=-Math.PI/2;floor.position.set((X0+X1)/2,0,(Z0+Z1)/2);floor.receiveShadow=true;scene.add(floor);
-const ground=new THREE.Mesh(new THREE.PlaneGeometry(240,240),M(0xd8d2c8));ground.rotation.x=-Math.PI/2;ground.position.y=-0.02;ground.receiveShadow=true;scene.add(ground);
+const ground=window.__ground=new THREE.Mesh(new THREE.PlaneGeometry(240,240),M(0xd8d2c8));ground.rotation.x=-Math.PI/2;ground.position.y=-0.02;ground.receiveShadow=true;scene.add(ground);
 box(scene,X1-X0+0.6,0.15,Z1-Z0+0.6,M(0xbab3a8),(X0+X1)/2,-0.16,(Z0+Z1)/2,{noShadow:true});
 
 /* ---------- building shell ---------- */
@@ -405,7 +405,7 @@ glassWall(X0,Z0,2,Z0,5);               // south glass beside Tandoor
 glassWall(10,Z0,13,Z0,5);              // garden window at the end of the passage
 solidWall(X1,-14,X1,Z1,1.4);           // east end wall
 const concrete=M(0xa9a7a2,{roughness:.9});
-for(let x=-26;x<=34;x+=10)box(scene,0.7,5,0.7,concrete,x,0,6.4);   // concrete columns at the corridor edge
+for(let x=-26;x<=44;x+=10)box(scene,0.7,5,0.7,concrete,x,0,6.4);   // concrete columns at the corridor edge
 // brick jaali screens outside the glass
 for(const [x,z,r] of [[-33.5,-10,0],[-33.5,4,0],[11.5,-21.4,1]]){const s=box(scene,r?2.4:0.3,5,r?0.3:2.4,M(0xa9563a),x,0,z);}
 
@@ -492,10 +492,10 @@ labels.push({text:'Passage to garden window',pos:new THREE.Vector3(11.5,2.4,-12)
 /* Global Grub block (east): x 13..34, z -14..-2 */
 counter({name:'Global Grub',x:19,z:-2,w:11,bg:'#36b8cf',fg:'#ffffff',seed:67,queue:true,oval:true,tvLeft:true});
 counter({name:'Uttar Dakshin',x:29.5,z:-2,w:10,bg:'#2a8f9e',fg:'#ffe6a6',seed:51,queue:true});
-box(scene,21,2.9,6.7,offwhite,24,0,-10.45);
+box(scene,32.5,2.9,6.7,offwhite,29.75,0,-10.45);box(scene,11.5,2.9,3.1,offwhite,40.25,0,-3.55);
 box(scene,0.4,2.9,12,grey,13.2,0,-8);box(scene,0.06,2.2,1.1,M(0xcfd2d4),12.97,0,-4.5);   // dark grey end wall with door
 muralBand(13.15,-14,13.15,-2,93);
-box(scene,25,3,6,offwhite,25.5,0,-17);labels.push({text:'Back of house',pos:new THREE.Vector3(25.5,3.6,-17),zone:false});
+box(scene,33,3,6,offwhite,29.5,0,-17);labels.push({text:'Back of house',pos:new THREE.Vector3(29.5,3.6,-17),zone:false});
 
 /* ---------- north side, along the glass ---------- */
 function chair(p,x,z,ry,mat){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=ry;p.add(g);
@@ -508,7 +508,7 @@ function tables(x1,x2,z1,z2,mat,dx,dz){for(let x=x1;x<=x2;x+=dx)for(let z=z1;z<=
 const lime=M(0x7ccf3a,{roughness:.55});
 tables(-30,-13,8.5,14.8,orange,3.0,2.6);                              // orange seating hall
 labels.push({text:'Seating (orange chairs)',pos:new THREE.Vector3(-19.5,2.2,11),zone:true});
-tables(14,34,8.5,14.5,lime,3.3,3);                                     // green-chair seating
+tables(14,44,8.5,14.5,lime,3.3,3);                                     // green-chair seating
 labels.push({text:'Seating (green chairs)',pos:new THREE.Vector3(24,2.2,11),zone:true});
 
 /* Window lounge + Flavour Station cart: x -7..11 */
@@ -597,6 +597,45 @@ labels.forEach(l=>{l.pos.x*=-1;});
   g.fillStyle='#fff';g.font='bold 150px "Segoe UI", Arial, sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText('N',256,385);});
   const c=new THREE.Mesh(new THREE.CircleGeometry(3,48),new THREE.MeshBasicMaterial({map:t,transparent:true}));c.rotation.x=-Math.PI/2;c.position.set(0,0.03,-25);scene.add(c);
   labels.push({text:'North',pos:new THREE.Vector3(0,0.5,-25)});})();
+/* ---------- the floor turns 40° toward the south from the middle of Uttar Dakshin ---------- */
+(function(){
+  const PX_=-29.5, PZ_=-2.0, TURN=-40*Math.PI/180, A0=65*Math.PI/180, A1=115*Math.PI/180, MAXE=1.6;
+  const wOf=(x,z)=>{const f=Math.abs(Math.atan2(z-PZ_,x-PX_));if(f<=A0)return 0;if(f>=A1)return 1;const t=(f-A0)/(A1-A0);return t*t*(3-2*t);};
+  const warpXZ=(x,z)=>{const w=wOf(x,z);if(!w)return [x,z];const r=TURN*w,c=Math.cos(r),sn=Math.sin(r),dx=x-PX_,dz=z-PZ_;return [PX_+dx*c-dz*sn,PZ_+dx*sn+dz*c];};
+  window.__warpXZ=warpXZ;
+  scene.updateMatrixWorld(true);
+  const v=new THREE.Vector3(),meshes=[];
+  scene.traverse(o=>{if(o.isMesh&&o!==window.__ground&&o.geometry&&o.geometry.attributes.position)meshes.push(o);});
+  function subdivide(geo,mw){ // split long triangles so the bend is smooth
+    let g=geo.index?geo.toNonIndexed():geo.clone();const names=Object.keys(g.attributes);
+    let data={};names.forEach(n=>{data[n]={a:Array.from(g.attributes[n].array),s:g.attributes[n].itemSize};});
+    const P=data.position;let tris=[];for(let i=0;i<P.a.length/3;i+=3)tris.push([i,i+1,i+2]);
+    const W=i=>{v.set(P.a[i*3],P.a[i*3+1],P.a[i*3+2]).applyMatrix4(mw);return [v.x,v.z];};
+    const mid=(i,j)=>{const k=P.a.length/3;names.forEach(n=>{const d=data[n];for(let c=0;c<d.s;c++)d.a.push((d.a[i*d.s+c]+d.a[j*d.s+c])/2);});return k;};
+    let out=[],guard=0;
+    while(tris.length&&guard++<400000){const t=tris.pop();const q=t.map(W);
+      const L=[[0,1],[1,2],[2,0]].map(([a,b])=>Math.hypot(q[a][0]-q[b][0],q[a][1]-q[b][1]));
+      const m=Math.max(...L);if(m<=MAXE){out.push(t);continue;}
+      const e=L.indexOf(m),a=e,b=(e+1)%3,c=(e+2)%3,k=mid(t[a],t[b]);
+      tris.push([t[a],k,t[c]],[k,t[b],t[c]]);}
+    tris.forEach(t=>out.push(t));
+    const ng=new THREE.BufferGeometry();
+    names.forEach(n=>{const d=data[n],arr=new Float32Array(out.length*3*d.s);let o=0;
+      out.forEach(t=>t.forEach(i=>{for(let c=0;c<d.s;c++)arr[o++]=d.a[i*d.s+c];}));ng.setAttribute(n,new THREE.BufferAttribute(arr,d.s));});
+    return ng;}
+  meshes.forEach(m=>{
+    const mw=m.matrixWorld,pos=m.geometry.attributes.position;let wmin=1,wmax=0,xs=[],zs=[];
+    for(let i=0;i<pos.count;i++){v.fromBufferAttribute(pos,i).applyMatrix4(mw);const w=wOf(v.x,v.z);wmin=Math.min(wmin,w);wmax=Math.max(wmax,w);xs.push(v.x);zs.push(v.z);}
+    if(wmax===0)return;
+    const span=Math.hypot(Math.max(...xs)-Math.min(...xs),Math.max(...zs)-Math.min(...zs));
+    let geo=(wmax-wmin>0.02&&span>MAXE)?subdivide(m.geometry,mw):m.geometry.clone();
+    const inv=new THREE.Matrix4().copy(mw).invert(),p=geo.attributes.position;
+    for(let i=0;i<p.count;i++){v.fromBufferAttribute(p,i).applyMatrix4(mw);const [x,z]=warpXZ(v.x,v.z);v.x=x;v.z=z;v.applyMatrix4(inv);p.setXYZ(i,v.x,v.y,v.z);}
+    p.needsUpdate=true;geo.computeVertexNormals();geo.computeBoundingSphere();geo.computeBoundingBox();m.geometry=geo;});
+  labels.forEach(l=>{const [x,z]=warpXZ(l.pos.x,l.pos.z);l.pos.x=x;l.pos.z=z;});
+  labels.push({text:'Floor turns 40° toward south',pos:new THREE.Vector3(PX_-3,0.6,PZ_+7),zone:true});
+})();
+
 
 /* ---------- labels ---------- */
 const lblLayer=document.createElement('div');document.body.appendChild(lblLayer);
