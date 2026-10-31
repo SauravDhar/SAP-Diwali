@@ -960,11 +960,11 @@ function sheetCall(body){return fetch(SHEET_URL,{method:'POST',headers:{'Content
 function applySheet(list,force){if(!force&&!form.hidden&&editing)return;pins=list.slice().sort((a,b)=>a.created-b.created);renderPins();}
 function sheetLoad(){return fetch(SHEET_URL+(SHEET_URL.includes('?')?'&':'?')+'t='+Date.now()).then(r=>r.json()).then(j=>{if(j.ok)applySheet(j.pins||[]);});}
 function setEditable(on){addBtn.disabled=!on;document.getElementById('keyRow').hidden=on;
-  note.textContent=on?'Shared plan (Google Sheet) · everyone with the link sees these pins':'Shared plan (Google Sheet) · enter the edit code to add or change pins';}
+  note.textContent=on?'Live shared plan · anyone with the link can add, move or delete pins':'Shared plan (Google Sheet) · enter the edit code to add or change pins';}
 function startSheet(){
   store={add:p=>sheetCall({action:'add',pin:p}),doc:id=>({set:p=>sheetCall({action:'update',id,pin:p}),delete:()=>sheetCall({action:'delete',id})})};
   note.textContent='Shared plan (Google Sheet) · loading…';pins=[];renderPins();
-  sheetLoad().then(()=>{if(editKey)sheetCall({action:'check'}).then(()=>setEditable(true),()=>{editKey='';setEditable(false);});else setEditable(false);})
+  sheetLoad().then(()=>{sheetCall({action:'check'}).then(()=>setEditable(true),()=>{editKey='';setEditable(false);});})
     .catch(()=>{note.textContent='Could not reach the shared plan. Check your connection and reload.';});
   setInterval(()=>{if(!document.hidden)sheetLoad().catch(()=>{});},15000);
   document.getElementById('unlock').addEventListener('click',()=>{const k=document.getElementById('editKey').value.trim();if(!k)return;editKey=k;
