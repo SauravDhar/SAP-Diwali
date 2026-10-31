@@ -74,6 +74,8 @@ body.blueprint .num {
   letter-spacing: 0.04em;
   margin-top: 2px;
 }
+.pinlbl.compact{padding:3px}
+.pinlbl.compact span:last-child{display:none}
 </style>
 </head><body>
 <title>SAP Labs BLR-11 Food Court 3D</title>
@@ -644,7 +646,9 @@ let showLabels=true;const v=new THREE.Vector3();
 function placeLabels(){const W=renderer.domElement.clientWidth,H=renderer.domElement.clientHeight;
   labels.forEach(l=>{if(!showLabels){l.el.hidden=true;return;}v.copy(l.pos).project(activeCamera);
     const vis=v.z<1&&v.z>-1&&Math.abs(v.x)<1.05&&Math.abs(v.y)<1.05;l.el.hidden=!vis;
-    if(vis){l.el.style.transform=`translate(${(v.x*.5+.5)*W}px,${(-v.y*.5+.5)*H}px) translate(-50%,-100%)`;}});}
+    if(vis){const x=(v.x*.5+.5)*W,y=(-v.y*.5+.5)*H;if(!l.fw){l.fw=l.el.offsetWidth||120;l.fh=l.el.offsetHeight||22;}
+      const r=[x-l.fw/2,y-l.fh,x+l.fw/2,y];if(hit(r)){l.el.hidden=true;return;}taken.push(r);
+      l.el.style.transform=`translate(${x}px,${y}px) translate(-50%,-100%)`;}});}
 
 /* ---------- blueprint mode engine ---------- */
 let blueprintMode = false;
@@ -913,10 +917,15 @@ const PRESET_PINS = [
  }
 ];
 const presets=()=>PRESET_PINS.map((p,i)=>Object.assign({id:'preset'+i,fixed:true},p));
-function lsLoad(){try{return JSON.parse(localStorage.getItem(LS)||'[]');}catch(e){return [];}}
+function lsLoad(){let a=[];try{a=JSON.parse(localStorage.getItem(LS)||'[]');}catch(e){a=[];}
+  const seen=new Set(PRESET_PINS.map(p=>String(p.title).trim().toLowerCase()));const out=[];
+  for(const p of a){const k=String(p.title||'').trim().toLowerCase();if(!k||seen.has(k))continue;seen.add(k);out.push(p);}
+  if(out.length!==a.length){try{localStorage.setItem(LS,JSON.stringify(out));}catch(e){}}
+  return out;}
+function dedupe(list){const seen=new Set();return list.filter(p=>{const k=String(p.title||'').trim().toLowerCase()+'|'+Math.round(p.x)+'|'+Math.round(p.z);if(seen.has(k))return false;seen.add(k);return true;});}
 function lsSave(){try{localStorage.setItem(LS,JSON.stringify(pins.filter(p=>!p.fixed)));}catch(e){}}
 function color(t){return (PIN_TYPES[t]||PIN_TYPES.note)[1];}
-function renderPins(){
+function renderPins(){pins=dedupe(pins);
   pinObjs.forEach(o=>{pinGroup.remove(o.mesh);o.el.remove();});pinObjs.clear();
   const list=document.getElementById('pinList');list.textContent='';
   pins.forEach((p,i)=>{const c=color(p.type);
@@ -941,9 +950,19 @@ function renderPins(){
     b.append(n2,t2,ty);b.addEventListener('click',()=>{flyTo(p);openForm(p);});li.appendChild(b);list.appendChild(li);});
   document.getElementById('pinEmpty').hidden=pins.length>0;
   pinGroup.visible=showPins;}
-function placePins(){const W=renderer.domElement.clientWidth,H=renderer.domElement.clientHeight;
+let taken=[];
+const hit=(r)=>taken.some(t=>r[0]<t[2]&&r[2]>t[0]&&r[1]<t[3]&&r[3]>t[1]);
+function placePins(){const W=renderer.domElement.clientWidth,H=renderer.domElement.clientHeight;taken=[];
+  const list=[];
   pinObjs.forEach(o=>{if(!showPins){o.el.hidden=true;return;}v.copy(o.pos).project(activeCamera);const vis=v.z<1&&v.z>-1&&Math.abs(v.x)<1.05&&Math.abs(v.y)<1.05;o.el.hidden=!vis;
-    if(vis)o.el.style.transform=`translate(${(v.x*.5+.5)*W}px,${(-v.y*.5+.5)*H}px) translate(-50%,-100%)`;});}
+    if(vis)list.push({o,x:(v.x*.5+.5)*W,y:(-v.y*.5+.5)*H,d:v.z});});
+  list.sort((a,b)=>a.d-b.d);
+  list.forEach(({o,x,y})=>{const el=o.el;
+    if(!o.fw){el.classList.remove('compact');o.fw=el.offsetWidth||140;o.fh=el.offsetHeight||26;}
+    let r=[x-o.fw/2,y-o.fh,x+o.fw/2,y];let compact=hit(r);
+    if(compact)r=[x-14,y-o.fh,x+14,y];
+    el.classList.toggle('compact',compact);taken.push(r);
+    el.style.transform=`translate(${x}px,${y}px) translate(-50%,-100%)`;});}
 function flyTo(p){
   if(isOrtho){
     controls.target.set(p.x, 0, p.z);
@@ -1096,7 +1115,7 @@ window.addEventListener('resize',resize);resize();
 function loop(){requestAnimationFrame(loop);
   if(tween){{const nw=performance.now();tween.t=Math.min(1,tween.t+Math.min(0.1,(nw-(tween.last||nw-16))/1000)/0.9);tween.last=nw;}const e=tween.t<.5?2*tween.t*tween.t:1-Math.pow(-2*tween.t+2,2)/2;
     camera.position.lerpVectors(tween.fp,tween.to.p,e);controls.target.lerpVectors(tween.ft,tween.to.t,e);if(tween.t>=1)tween=null;}
-  navStep();controls.update();renderer.render(scene,activeCamera);placeLabels();placePins();}
+  navStep();controls.update();renderer.render(scene,activeCamera);placePins();placeLabels();}
 loop();
 })();
 </script>
